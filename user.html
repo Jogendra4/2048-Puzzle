@@ -955,14 +955,20 @@
         // 5. Enable Firestore Database in your Firebase project
         // 6. Set up authentication (optional - currently using demo mode)
         
+        // ⚠️ REPLACE WITH YOUR ACTUAL FIREBASE CONFIG ⚠️
+        // Go to Firebase Console → Project Settings → General → Your apps
+        // Copy the firebaseConfig object and paste it here
         const firebaseConfig = {
-            apiKey: "AIzaSyDemoKey-replace-with-your-actual-key",
-            authDomain: "ff-tournaments-demo.firebaseapp.com",
-            projectId: "ff-tournaments-demo",
-            storageBucket: "ff-tournaments-demo.appspot.com",
-            messagingSenderId: "123456789012",
-            appId: "1:123456789012:web:abcdefghijklmnop"
+            apiKey: "your-api-key-here",
+            authDomain: "your-project.firebaseapp.com",
+            projectId: "your-project-id",
+            storageBucket: "your-project.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "your-app-id"
         };
+        
+        // Demo mode flag - will use localStorage if Firebase fails
+        let useDemoMode = false;
         
         // =====================================================
         // FIRESTORE DATABASE STRUCTURE
@@ -1005,16 +1011,28 @@
         // }
         // =====================================================
 
-        // Initialize Firebase
+        // Initialize Firebase with fallback to demo mode
         let app, db, auth;
-        try {
-            app = firebase.initializeApp(firebaseConfig);
-            db = firebase.firestore();
-            auth = firebase.auth();
-            console.log('Firebase initialized successfully');
-        } catch (error) {
-            console.error('Firebase initialization error:', error);
-            showMessage('error', 'Firebase connection failed. Please check configuration.');
+        let firebaseConnected = false;
+        
+        // Check if Firebase config is properly set
+        if (firebaseConfig.apiKey === "your-api-key-here" || !firebaseConfig.apiKey) {
+            console.warn('🔥 Firebase not configured - switching to DEMO MODE');
+            useDemoMode = true;
+            showMessage('info', '🔥 DEMO MODE: Using local storage. Set up Firebase for real-time sync between admin/user panels.');
+        } else {
+            try {
+                app = firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                auth = firebase.auth();
+                firebaseConnected = true;
+                console.log('✅ Firebase initialized successfully');
+                showMessage('success', '🔥 Firebase connected! Data will sync between admin and user panels.');
+            } catch (error) {
+                console.error('❌ Firebase initialization error:', error);
+                useDemoMode = true;
+                showMessage('error', '❌ Firebase connection failed. Using DEMO MODE. Check console for details.');
+            }
         }
 
         // Global Variables
@@ -1024,6 +1042,53 @@
         let tournaments = [];
         let userRegistrations = [];
         let userProfile = null;
+
+        // Demo Mode Functions (using localStorage)
+        const demoStorage = {
+            getTournaments: () => {
+                const stored = localStorage.getItem('demo_tournaments');
+                return stored ? JSON.parse(stored) : [];
+            },
+            
+            saveTournaments: (tournaments) => {
+                localStorage.setItem('demo_tournaments', JSON.stringify(tournaments));
+                // Trigger storage event for cross-tab sync
+                window.dispatchEvent(new StorageEvent('storage', {
+                    key: 'demo_tournaments',
+                    newValue: JSON.stringify(tournaments)
+                }));
+            },
+            
+            getUsers: () => {
+                const stored = localStorage.getItem('demo_users');
+                return stored ? JSON.parse(stored) : [];
+            },
+            
+            saveUsers: (users) => {
+                localStorage.setItem('demo_users', JSON.stringify(users));
+            },
+            
+            getRegistrations: () => {
+                const stored = localStorage.getItem('demo_registrations');
+                return stored ? JSON.parse(stored) : [];
+            },
+            
+            saveRegistrations: (registrations) => {
+                localStorage.setItem('demo_registrations', JSON.stringify(registrations));
+            }
+        };
+
+        // Listen for storage changes (cross-tab sync in demo mode)
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'demo_tournaments' && useDemoMode) {
+                console.log('📡 Demo tournaments updated - refreshing data');
+                loadTournamentsFromStorage();
+                loadLiveTournaments();
+                if (document.getElementById('tournaments').classList.contains('active')) {
+                    loadTournaments('live');
+                }
+            }
+        });
 
         // Firebase Data Loading Functions
         async function loadUserProfile() {
@@ -1056,7 +1121,15 @@
         }
 
         async function loadTournamentsFromFirebase() {
+            if (useDemoMode) {
+                return loadTournamentsFromStorage();
+            }
+
             try {
+                if (!db) {
+                    throw new Error('Firebase not initialized');
+                }
+
                 const snapshot = await db.collection('tournaments')
                     .orderBy('datetime', 'asc')
                     .get();
@@ -1072,12 +1145,29 @@
                 });
                 
                 updateTournamentStatus();
+                console.log(`✅ Loaded ${tournaments.length} tournaments from Firebase`);
                 return tournaments;
             } catch (error) {
-                console.error('Error loading tournaments:', error);
-                showMessage('error', 'Failed to load tournaments');
-                return [];
+                console.error('❌ Error loading tournaments from Firebase:', error);
+                console.log('🔄 Switching to demo mode');
+                useDemoMode = true;
+                return loadTournamentsFromStorage();
             }
+        }
+
+        function loadTournamentsFromStorage() {
+            tournaments = demoStorage.getTournaments();
+            
+            // Convert string dates back to Date objects
+            tournaments.forEach(tournament => {
+                if (typeof tournament.datetime === 'string') {
+                    tournament.datetime = new Date(tournament.datetime);
+                }
+            });
+            
+            updateTournamentStatus();
+            console.log(`📱 Loaded ${tournaments.length} tournaments from localStorage`);
+            return tournaments;
         }
 
         async function loadUserRegistrations() {
@@ -1662,31 +1752,57 @@
                 currentUser = null;
                 userProfile = null;
                 
-                // Show/hide login buttons
-                document.getElementById('loginButton').style.display = 'inline-flex';
-                document.getElementById('logoutButton').style.display = 'none';
-                
-                // Clear user-specific data
-                document.getElementById('walletAmount').textContent = '0';
-                document.getElementById('profileWallet').textContent = '0';
-                document.getElementById('profileName').textContent = 'Guest';
-                document.getElementById('profileUID').textContent = 'Not signed in';
-                document.getElementById('referralCode').textContent = 'Please sign in';
-                document.getElementById('userTournamentCount').textContent = '0';
-                document.getElementById('userTotalWinnings').textContent = '₹0';
-                
-                // Show login modal if not signed in
-                setTimeout(() => {
-                    if (!currentUser) {
-                        showMessage('info', 'Please sign in to access all features');
-                        showLoginForm();
-                    }
-                }, 1000);
-                
-                // Still load tournaments for browsing
-                await loadTournamentsFromFirebase();
-                loadLiveTournaments();
-                loadTournaments('live');
+                if (useDemoMode) {
+                    // In demo mode, allow browsing without authentication
+                    currentUser = { uid: 'demo-user', email: 'demo@user.com', displayName: 'Demo User' };
+                    userProfile = {
+                        name: 'Demo User',
+                        email: 'demo@user.com',
+                        uid: '123456789',
+                        walletBalance: 500,
+                        referralCode: 'DEMO2025',
+                        totalTournaments: 3,
+                        totalWinnings: 1500,
+                        joinedDate: new Date().toISOString()
+                    };
+                    
+                    // Hide login button, show logout in demo mode
+                    document.getElementById('loginButton').style.display = 'none';
+                    document.getElementById('logoutButton').style.display = 'inline-flex';
+                    
+                    updateUIWithUserData();
+                    await loadTournamentsFromFirebase();
+                    loadLiveTournaments();
+                    loadTournaments('live');
+                    
+                    showMessage('info', '🔥 Demo mode: Browse and test tournament features. Admin changes will sync here.');
+                } else {
+                    // Show/hide login buttons
+                    document.getElementById('loginButton').style.display = 'inline-flex';
+                    document.getElementById('logoutButton').style.display = 'none';
+                    
+                    // Clear user-specific data
+                    document.getElementById('walletAmount').textContent = '0';
+                    document.getElementById('profileWallet').textContent = '0';
+                    document.getElementById('profileName').textContent = 'Guest';
+                    document.getElementById('profileUID').textContent = 'Not signed in';
+                    document.getElementById('referralCode').textContent = 'Please sign in';
+                    document.getElementById('userTournamentCount').textContent = '0';
+                    document.getElementById('userTotalWinnings').textContent = '₹0';
+                    
+                    // Show login modal if not signed in
+                    setTimeout(() => {
+                        if (!currentUser) {
+                            showMessage('info', 'Please sign in to access all features');
+                            showLoginForm();
+                        }
+                    }, 1000);
+                    
+                    // Still load tournaments for browsing
+                    await loadTournamentsFromFirebase();
+                    loadLiveTournaments();
+                    loadTournaments('live');
+                }
             }
         });
 

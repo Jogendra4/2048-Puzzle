@@ -1275,14 +1275,18 @@
         // Use the SAME Firebase configuration as in user.html
         // Both user and admin interfaces must connect to the same database
         
+        // ⚠️ MUST BE IDENTICAL TO user.html CONFIG ⚠️
         const firebaseConfig = {
-            apiKey: "AIzaSyDemoKey-replace-with-your-actual-key",
-            authDomain: "ff-tournaments-demo.firebaseapp.com",
-            projectId: "ff-tournaments-demo",
-            storageBucket: "ff-tournaments-demo.appspot.com",
-            messagingSenderId: "123456789012",
-            appId: "1:123456789012:web:abcdefghijklmnop"
+            apiKey: "your-api-key-here",
+            authDomain: "your-project.firebaseapp.com",
+            projectId: "your-project-id",
+            storageBucket: "your-project.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "your-app-id"
         };
+        
+        // Demo mode flag - will use localStorage if Firebase fails
+        let useDemoMode = false;
         
         // =====================================================
         // DEMO MODE NOTICE
@@ -1294,16 +1298,28 @@
         // - Remove demoAdminSignIn() for production use
         // =====================================================
 
-        // Initialize Firebase
+        // Initialize Firebase with fallback to demo mode
         let app, db, auth;
-        try {
-            app = firebase.initializeApp(firebaseConfig);
-            db = firebase.firestore();
-            auth = firebase.auth();
-            console.log('Firebase initialized successfully');
-        } catch (error) {
-            console.error('Firebase initialization error:', error);
-            showMessage('error', 'Firebase connection failed. Please check configuration.');
+        let firebaseConnected = false;
+        
+        // Check if Firebase config is properly set
+        if (firebaseConfig.apiKey === "your-api-key-here" || !firebaseConfig.apiKey) {
+            console.warn('🔥 Firebase not configured - switching to DEMO MODE');
+            useDemoMode = true;
+            showMessage('info', '🔥 DEMO MODE: Using local storage. Tournaments will sync with user panel.');
+        } else {
+            try {
+                app = firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                auth = firebase.auth();
+                firebaseConnected = true;
+                console.log('✅ Firebase initialized successfully');
+                showMessage('success', '🔥 Firebase connected! Admin changes will sync with user panel.');
+            } catch (error) {
+                console.error('❌ Firebase initialization error:', error);
+                useDemoMode = true;
+                showMessage('error', '❌ Firebase connection failed. Using DEMO MODE. Check console for details.');
+            }
         }
 
         // Global Variables
@@ -1318,9 +1334,62 @@
             walletBalance: 0
         };
 
+        // Demo Mode Functions (using localStorage) - Same as user.html
+        const demoStorage = {
+            getTournaments: () => {
+                const stored = localStorage.getItem('demo_tournaments');
+                return stored ? JSON.parse(stored) : [];
+            },
+            
+            saveTournaments: (tournaments) => {
+                localStorage.setItem('demo_tournaments', JSON.stringify(tournaments));
+                // Trigger storage event for cross-tab sync
+                window.dispatchEvent(new StorageEvent('storage', {
+                    key: 'demo_tournaments',
+                    newValue: JSON.stringify(tournaments)
+                }));
+            },
+            
+            getUsers: () => {
+                const stored = localStorage.getItem('demo_users');
+                return stored ? JSON.parse(stored) : [];
+            },
+            
+            saveUsers: (users) => {
+                localStorage.setItem('demo_users', JSON.stringify(users));
+            },
+            
+            getRegistrations: () => {
+                const stored = localStorage.getItem('demo_registrations');
+                return stored ? JSON.parse(stored) : [];
+            },
+            
+            saveRegistrations: (registrations) => {
+                localStorage.setItem('demo_registrations', JSON.stringify(registrations));
+            }
+        };
+
+        // Listen for storage changes (cross-tab sync in demo mode)
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'demo_tournaments' && useDemoMode) {
+                console.log('📡 Demo tournaments updated from user panel - refreshing admin view');
+                loadTournamentsFromStorage();
+                renderTournamentsTable();
+                updateDashboardMetrics();
+            }
+        });
+
         // Firebase Data Loading Functions
         async function loadTournamentsFromFirebase() {
+            if (useDemoMode) {
+                return loadTournamentsFromStorage();
+            }
+
             try {
+                if (!db) {
+                    throw new Error('Firebase not initialized');
+                }
+
                 const snapshot = await db.collection('tournaments')
                     .orderBy('datetime', 'desc')
                     .get();
@@ -1338,12 +1407,31 @@
                 updateTournamentStatus();
                 dashboardMetrics.totalTournaments = tournaments.length;
                 updateDashboardMetrics();
+                console.log(`✅ Admin loaded ${tournaments.length} tournaments from Firebase`);
                 return tournaments;
             } catch (error) {
-                console.error('Error loading tournaments:', error);
-                showMessage('error', 'Failed to load tournaments');
-                return [];
+                console.error('❌ Error loading tournaments from Firebase:', error);
+                console.log('🔄 Admin switching to demo mode');
+                useDemoMode = true;
+                return loadTournamentsFromStorage();
             }
+        }
+
+        function loadTournamentsFromStorage() {
+            tournaments = demoStorage.getTournaments();
+            
+            // Convert string dates back to Date objects
+            tournaments.forEach(tournament => {
+                if (typeof tournament.datetime === 'string') {
+                    tournament.datetime = new Date(tournament.datetime);
+                }
+            });
+            
+            updateTournamentStatus();
+            dashboardMetrics.totalTournaments = tournaments.length;
+            updateDashboardMetrics();
+            console.log(`📱 Admin loaded ${tournaments.length} tournaments from localStorage`);
+            return tournaments;
         }
 
         async function loadPlayersFromFirebase() {
@@ -1837,26 +1925,23 @@
             e.preventDefault();
             
             try {
-                if (!currentAdmin) {
-                    showMessage('error', 'Please sign in as admin first.');
-                    return;
-                }
-
-                // Save tournament to Firebase
+                // Save tournament
                 await saveTournament();
                 closeModal('tournamentModal');
                 
-                // Refresh tournaments list
+                // Refresh tournaments list and dashboard
                 await loadTournamentsFromFirebase();
                 renderTournamentsTable();
+                updateDashboardMetrics();
                 
                 // Reset form
                 document.getElementById('tournamentForm').reset();
                 
-                showMessage('success', 'Tournament created successfully!');
+                showMessage('success', '✅ Tournament created successfully! Check user panel to see it sync.');
+                console.log('🎯 Tournament created - should now appear in user panel');
             } catch (error) {
-                showMessage('error', 'Failed to save tournament. Please try again.');
-                console.error('Tournament save error:', error);
+                showMessage('error', '❌ Failed to save tournament. Please try again.');
+                console.error('❌ Tournament save error:', error);
             }
         });
 
@@ -1904,12 +1989,8 @@
         });
 
         // Firebase Functions
-        async function saveTournament(formData) {
+        async function saveTournament() {
             try {
-                if (!currentAdmin) {
-                    throw new Error('Admin authentication required');
-                }
-
                 // Get form values
                 const title = document.getElementById('tournamentTitle').value;
                 const date = document.getElementById('tournamentDate').value;
@@ -1927,7 +2008,7 @@
 
                 const tournamentData = {
                     title: title,
-                    datetime: firebase.firestore.Timestamp.fromDate(datetime),
+                    datetime: datetime.toISOString(), // Store as ISO string for localStorage compatibility
                     map: map,
                     prize: prize,
                     entryFee: entryFee,
@@ -1936,16 +2017,35 @@
                     roomId: roomId,
                     roomPass: roomPass,
                     description: description || '',
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    createdBy: currentAdmin.uid,
+                    createdAt: new Date().toISOString(),
+                    createdBy: currentAdmin?.uid || 'demo-admin',
                     status: 'upcoming'
                 };
 
-                await db.collection('tournaments').add(tournamentData);
-                console.log('Tournament saved successfully');
+                if (useDemoMode) {
+                    // Save to localStorage
+                    const tournaments = demoStorage.getTournaments();
+                    tournamentData.id = 'demo_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    tournaments.push(tournamentData);
+                    demoStorage.saveTournaments(tournaments);
+                    console.log('✅ Tournament saved to localStorage');
+                } else {
+                    // Save to Firebase
+                    if (!db || !currentAdmin) {
+                        throw new Error('Firebase not initialized or admin not authenticated');
+                    }
+                    
+                    // Convert to Firebase timestamp for Firestore
+                    tournamentData.datetime = firebase.firestore.Timestamp.fromDate(datetime);
+                    tournamentData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                    
+                    await db.collection('tournaments').add(tournamentData);
+                    console.log('✅ Tournament saved to Firebase');
+                }
+                
                 return true;
             } catch (error) {
-                console.error('Error saving tournament:', error);
+                console.error('❌ Error saving tournament:', error);
                 throw error;
             }
         }
@@ -2103,19 +2203,33 @@
                 // Reset admin welcome message
                 document.getElementById('adminWelcome').textContent = 'Welcome, Admin';
                 
-                // Clear sensitive data
-                tournaments = [];
-                players = [];
-                dashboardMetrics = { totalTournaments: 0, totalPlayers: 0, onlinePlayers: 0, walletBalance: 0 };
-                updateDashboardMetrics();
-                
-                // Show admin login modal
-                setTimeout(() => {
-                    if (!currentAdmin) {
-                        showMessage('info', 'Please sign in to access admin features');
-                        showAdminLogin();
-                    }
-                }, 1000);
+                if (useDemoMode) {
+                    // In demo mode, allow admin access without authentication
+                    currentAdmin = { uid: 'demo-admin', email: 'demo@admin.com', displayName: 'Demo Admin' };
+                    document.getElementById('adminWelcome').textContent = 'Welcome, Demo Admin';
+                    
+                    // Load data and initialize
+                    await loadTournamentsFromFirebase();
+                    await loadPlayersFromFirebase();
+                    await loadDashboard();
+                    await loadTournaments();
+                    
+                    showMessage('info', '🔥 Demo mode: Admin access granted. Create tournaments to test sync with user panel.');
+                } else {
+                    // Clear sensitive data
+                    tournaments = [];
+                    players = [];
+                    dashboardMetrics = { totalTournaments: 0, totalPlayers: 0, onlinePlayers: 0, walletBalance: 0 };
+                    updateDashboardMetrics();
+                    
+                    // Show admin login modal
+                    setTimeout(() => {
+                        if (!currentAdmin) {
+                            showMessage('info', 'Please sign in to access admin features');
+                            showAdminLogin();
+                        }
+                    }, 1000);
+                }
             }
         });
 
