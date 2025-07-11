@@ -1,0 +1,1852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FF Tournaments - Admin Dashboard</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Russo+One:wght@400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    
+    <!-- Chart.js for Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        :root {
+            --bg-primary: #F8FAFC;
+            --bg-secondary: #E2E8F0;
+            --text-dark: #1E293B;
+            --accent-blue: #2563EB;
+            --accent-gold: #FBBF24;
+            --accent-red: #DC2626;
+            --border: #CBD5E1;
+            --accent-green: #10B981;
+            --bg-dark: #0F172A;
+            --card-bg: #FFFFFF;
+            --accent-purple: #7C3AED;
+            --accent-orange: #F97316;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-dark);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            min-height: 100vh;
+            position: relative;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--bg-dark), #334155);
+            color: white;
+            padding: 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .logo {
+            font-family: 'Russo One', sans-serif;
+            font-size: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .admin-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(16, 185, 129, 0.2);
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            font-size: 0.875rem;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Navigation */
+        .nav-container {
+            display: flex;
+            background: white;
+            border-bottom: 1px solid var(--border);
+            overflow-x: auto;
+            position: sticky;
+            top: 68px;
+            z-index: 99;
+        }
+
+        .nav-tabs {
+            display: flex;
+            min-width: max-content;
+        }
+
+        .nav-tab {
+            padding: 1rem 1.5rem;
+            background: none;
+            border: none;
+            color: var(--text-dark);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-tab.active {
+            color: var(--accent-blue);
+            border-bottom-color: var(--accent-blue);
+            background: rgba(37, 99, 235, 0.05);
+        }
+
+        .nav-tab:hover {
+            background: var(--bg-secondary);
+        }
+
+        /* Content */
+        .content {
+            padding: 1.5rem;
+        }
+
+        .section {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .card-title {
+            font-family: 'Russo One', sans-serif;
+            font-size: 1.25rem;
+            color: var(--text-dark);
+        }
+
+        /* Dashboard Metrics */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, var(--accent-blue), #1e40af);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 16px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-card.green {
+            background: linear-gradient(135deg, var(--accent-green), #059669);
+        }
+
+        .metric-card.gold {
+            background: linear-gradient(135deg, var(--accent-gold), #f59e0b);
+            color: var(--text-dark);
+        }
+
+        .metric-card.purple {
+            background: linear-gradient(135deg, var(--accent-purple), #5b21b6);
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            transform: translate(30px, -30px);
+        }
+
+        .metric-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        .metric-value {
+            font-family: 'Russo One', sans-serif;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        .metric-label {
+            font-size: 0.875rem;
+            opacity: 0.9;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Quick Actions */
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .action-btn {
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            padding: 1rem;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(37, 99, 235, 0.3);
+        }
+
+        .action-btn.green {
+            background: var(--accent-green);
+        }
+
+        .action-btn.orange {
+            background: var(--accent-orange);
+        }
+
+        .action-btn.purple {
+            background: var(--accent-purple);
+        }
+
+        /* Tables */
+        .table-container {
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        .table th,
+        .table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .table th {
+            background: var(--bg-secondary);
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .table tr:hover {
+            background: rgba(37, 99, 235, 0.05);
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 15px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .status-live {
+            background: var(--accent-green);
+            color: white;
+        }
+
+        .status-upcoming {
+            background: var(--accent-gold);
+            color: var(--text-dark);
+        }
+
+        .status-ended {
+            background: var(--border);
+            color: #64748b;
+        }
+
+        /* Form Elements */
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+
+        .form-input,
+        .form-select,
+        .form-textarea {
+            width: 100%;
+            padding: 0.875rem;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-input:focus,
+        .form-select:focus,
+        .form-textarea:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .form-textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--accent-blue);
+            color: white;
+        }
+
+        .btn-success {
+            background: var(--accent-green);
+            color: white;
+        }
+
+        .btn-warning {
+            background: var(--accent-gold);
+            color: var(--text-dark);
+        }
+
+        .btn-danger {
+            background: var(--accent-red);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--text-dark);
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            filter: brightness(110%);
+        }
+
+        .btn-sm {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            width: 100%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-title {
+            font-family: 'Russo One', sans-serif;
+            font-size: 1.5rem;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #64748b;
+            padding: 0.5rem;
+        }
+
+        /* Search and Filters */
+        .filters {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .filter-select {
+            min-width: 150px;
+        }
+
+        /* Analytics Charts */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-bottom: 1.5rem;
+        }
+
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+        }
+
+        /* Real-time Indicators */
+        .realtime-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .realtime-card {
+            background: var(--card-bg);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .realtime-value {
+            font-family: 'Russo One', sans-serif;
+            font-size: 1.5rem;
+            color: var(--accent-blue);
+            margin-bottom: 0.25rem;
+        }
+
+        /* Success/Error Messages */
+        .message {
+            padding: 1rem;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .message.success {
+            background: #dcfce7;
+            color: #15803d;
+            border: 1px solid #bbf7d0;
+        }
+
+        .message.error {
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+
+        .message.info {
+            background: #dbeafe;
+            color: #1d4ed8;
+            border: 1px solid #bfdbfe;
+        }
+
+        /* Loading States */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid transparent;
+            border-top: 2px solid currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                max-width: 100%;
+            }
+            
+            .content {
+                padding: 1rem;
+            }
+            
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .filters {
+                flex-direction: column;
+            }
+            
+            .chart-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .metrics-grid {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            }
+        }
+
+        @media (max-width: 480px) {
+            .quick-actions {
+                grid-template-columns: 1fr;
+            }
+            
+            .action-btn {
+                padding: 0.875rem;
+            }
+            
+            .table th,
+            .table td {
+                padding: 0.75rem 0.5rem;
+                font-size: 0.875rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-shield-alt"></i>
+                    Admin Dashboard
+                </div>
+                <div class="admin-info">
+                    <div class="live-indicator">
+                        <div class="live-dot"></div>
+                        System Online
+                    </div>
+                    <div style="color: rgba(255,255,255,0.8);">Welcome, Admin</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <div class="nav-container">
+            <nav class="nav-tabs">
+                <button class="nav-tab active" onclick="showSection('dashboard')">
+                    <i class="fas fa-chart-line"></i> Dashboard
+                </button>
+                <button class="nav-tab" onclick="showSection('tournaments')">
+                    <i class="fas fa-trophy"></i> Tournaments
+                </button>
+                <button class="nav-tab" onclick="showSection('players')">
+                    <i class="fas fa-users"></i> Players
+                </button>
+                <button class="nav-tab" onclick="showSection('analytics')">
+                    <i class="fas fa-chart-bar"></i> Analytics
+                </button>
+                <button class="nav-tab" onclick="showSection('settings')">
+                    <i class="fas fa-cog"></i> Settings
+                </button>
+            </nav>
+        </div>
+
+        <!-- Content -->
+        <main class="content">
+            <!-- Dashboard Section -->
+            <section id="dashboard" class="section active">
+                <!-- Metrics Grid -->
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-icon">🏆</div>
+                        <div class="metric-value" id="totalTournaments">156</div>
+                        <div class="metric-label">Total Tournaments</div>
+                    </div>
+                    <div class="metric-card green">
+                        <div class="metric-icon">👥</div>
+                        <div class="metric-value" id="totalPlayers">12,450</div>
+                        <div class="metric-label">Total Players</div>
+                    </div>
+                    <div class="metric-card purple">
+                        <div class="metric-icon">🎮</div>
+                        <div class="metric-value" id="onlinePlayers">2,340</div>
+                        <div class="metric-label">Online Players</div>
+                    </div>
+                    <div class="metric-card gold">
+                        <div class="metric-icon">💰</div>
+                        <div class="metric-value">₹<span id="walletBalance">87,500</span></div>
+                        <div class="metric-label">Wallet Balance Held</div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Quick Actions</h3>
+                    </div>
+                    <div class="quick-actions">
+                        <button class="action-btn" onclick="openTournamentModal()">
+                            <i class="fas fa-plus"></i> Create Tournament
+                        </button>
+                        <button class="action-btn green" onclick="showSection('analytics')">
+                            <i class="fas fa-chart-line"></i> View Analytics
+                        </button>
+                        <button class="action-btn orange" onclick="openNotificationModal()">
+                            <i class="fas fa-bell"></i> Send Notification
+                        </button>
+                        <button class="action-btn purple" onclick="showSection('players')">
+                            <i class="fas fa-eye"></i> View Payments
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Real-time Stats -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Real-time Activity</h3>
+                    </div>
+                    <div class="realtime-stats">
+                        <div class="realtime-card">
+                            <div class="realtime-value" id="activeMatches">23</div>
+                            <div>Active Matches</div>
+                        </div>
+                        <div class="realtime-card">
+                            <div class="realtime-value" id="todaySignups">89</div>
+                            <div>Today's Signups</div>
+                        </div>
+                        <div class="realtime-card">
+                            <div class="realtime-value" id="todayRevenue">₹15,420</div>
+                            <div>Today's Revenue</div>
+                        </div>
+                        <div class="realtime-card">
+                            <div class="realtime-value" id="pendingPayouts">₹8,750</div>
+                            <div>Pending Payouts</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Recent Activity</h3>
+                    </div>
+                    <div id="recentActivity"></div>
+                </div>
+            </section>
+
+            <!-- Tournaments Section -->
+            <section id="tournaments" class="section">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Tournament Management</h3>
+                        <button class="btn btn-primary" onclick="openTournamentModal()">
+                            <i class="fas fa-plus"></i> Create Tournament
+                        </button>
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="filters">
+                        <input type="text" class="form-input search-input" placeholder="Search tournaments..." id="tournamentSearch">
+                        <select class="form-select filter-select" id="statusFilter">
+                            <option value="">All Status</option>
+                            <option value="live">Live</option>
+                            <option value="upcoming">Upcoming</option>
+                            <option value="ended">Ended</option>
+                        </select>
+                        <button class="btn btn-secondary" onclick="loadTournaments()">
+                            <i class="fas fa-sync"></i> Refresh
+                        </button>
+                    </div>
+
+                    <!-- Tournaments Table -->
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Tournament</th>
+                                    <th>Date & Time</th>
+                                    <th>Prize Pool</th>
+                                    <th>Players</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tournamentsTableBody">
+                                <!-- Dynamic content -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Players Section -->
+            <section id="players" class="section">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Player Management</h3>
+                        <div>
+                            <button class="btn btn-secondary btn-sm" onclick="exportPlayers()">
+                                <i class="fas fa-download"></i> Export
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="filters">
+                        <input type="text" class="form-input search-input" placeholder="Search players..." id="playerSearch">
+                        <select class="form-select filter-select" id="playerFilter">
+                            <option value="">All Players</option>
+                            <option value="active">Active</option>
+                            <option value="banned">Banned</option>
+                            <option value="new">New (Last 7 days)</option>
+                        </select>
+                    </div>
+
+                    <!-- Players Table -->
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Player</th>
+                                    <th>FF UID</th>
+                                    <th>Wallet Balance</th>
+                                    <th>Tournaments</th>
+                                    <th>Joined Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="playersTableBody">
+                                <!-- Dynamic content -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Player Registrations -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Recent Tournament Registrations</h3>
+                    </div>
+                    <div id="recentRegistrations"></div>
+                </div>
+            </section>
+
+            <!-- Analytics Section -->
+            <section id="analytics" class="section">
+                <!-- Chart Grid -->
+                <div class="chart-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Daily Sign-ups</h3>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="signupsChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Revenue Analytics</h3>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="revenueChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Tournament Participation</h3>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="participationChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Referral Performance</h3>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="referralChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Players Gauge -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Real-time Active Players</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="activePlayersGauge"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings Section -->
+            <section id="settings" class="section">
+                <!-- Payment Gateway Config -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Payment Gateway Configuration</h3>
+                    </div>
+                    <form id="paymentConfigForm">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Razorpay Key ID</label>
+                                <input type="text" class="form-input" id="razorpayKeyId" placeholder="rzp_live_...">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Razorpay Secret</label>
+                                <input type="password" class="form-input" id="razorpaySecret" placeholder="Enter secret key">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Stripe Publishable Key</label>
+                                <input type="text" class="form-input" id="stripePublishable" placeholder="pk_live_...">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Stripe Secret Key</label>
+                                <input type="password" class="form-input" id="stripeSecret" placeholder="sk_live_...">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Save Payment Config
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Referral Settings -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Referral System Settings</h3>
+                    </div>
+                    <form id="referralConfigForm">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Referrer Bonus (₹)</label>
+                                <input type="number" class="form-input" id="referrerBonus" value="50" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Referee Bonus (₹)</label>
+                                <input type="number" class="form-input" id="refereeBonus" value="50" min="0">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Minimum Withdrawal Amount (₹)</label>
+                            <input type="number" class="form-input" id="minWithdrawal" value="100" min="10">
+                        </div>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save"></i> Save Referral Settings
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Admin Users -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Admin Users & Roles</h3>
+                        <button class="btn btn-primary" onclick="openAdminModal()">
+                            <i class="fas fa-user-plus"></i> Add Admin
+                        </button>
+                    </div>
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Last Login</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminUsersTableBody">
+                                <tr>
+                                    <td>John Doe</td>
+                                    <td>john@fftournaments.app</td>
+                                    <td><span class="status-badge status-live">Super Admin</span></td>
+                                    <td>2 hours ago</td>
+                                    <td>
+                                        <button class="btn btn-secondary btn-sm">Edit</button>
+                                        <button class="btn btn-danger btn-sm">Remove</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>Jane Smith</td>
+                                    <td>jane@fftournaments.app</td>
+                                    <td><span class="status-badge status-upcoming">Admin</span></td>
+                                    <td>1 day ago</td>
+                                    <td>
+                                        <button class="btn btn-secondary btn-sm">Edit</button>
+                                        <button class="btn btn-danger btn-sm">Remove</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- System Settings -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">System Settings</h3>
+                    </div>
+                    <form id="systemConfigForm">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Platform Commission (%)</label>
+                                <input type="number" class="form-input" id="platformCommission" value="5" min="0" max="50">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Auto-payout Threshold (₹)</label>
+                                <input type="number" class="form-input" id="autoPayoutThreshold" value="10000" min="1000">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Maintenance Mode</label>
+                            <select class="form-select" id="maintenanceMode">
+                                <option value="off">Off</option>
+                                <option value="on">On</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-save"></i> Save System Settings
+                        </button>
+                    </form>
+                </div>
+            </section>
+        </main>
+
+        <!-- Tournament Modal -->
+        <div id="tournamentModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title" id="tournamentModalTitle">Create Tournament</h3>
+                    <button class="close-btn" onclick="closeModal('tournamentModal')">&times;</button>
+                </div>
+                
+                <form id="tournamentForm">
+                    <div class="form-group">
+                        <label class="form-label">Tournament Title</label>
+                        <input type="text" class="form-input" id="tournamentTitle" placeholder="Enter tournament title" required>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Date</label>
+                            <input type="date" class="form-input" id="tournamentDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Time</label>
+                            <input type="time" class="form-input" id="tournamentTime" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Map</label>
+                            <select class="form-select" id="tournamentMap" required>
+                                <option value="">Select Map</option>
+                                <option value="Bermuda">Bermuda</option>
+                                <option value="Purgatory">Purgatory</option>
+                                <option value="Kalahari">Kalahari</option>
+                                <option value="Alpine">Alpine</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Max Players</label>
+                            <input type="number" class="form-input" id="tournamentMaxPlayers" min="10" max="500" value="100" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Entry Fee (₹)</label>
+                            <input type="number" class="form-input" id="tournamentEntryFee" min="10" value="50" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Prize Pool (₹)</label>
+                            <input type="number" class="form-input" id="tournamentPrize" min="100" value="2000" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Room ID</label>
+                            <input type="text" class="form-input" id="tournamentRoomId" placeholder="Game room ID" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Room Password</label>
+                            <input type="text" class="form-input" id="tournamentRoomPass" placeholder="Room password" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-textarea" id="tournamentDescription" placeholder="Tournament description..."></textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">
+                        <i class="fas fa-save"></i> Save Tournament
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Notification Modal -->
+        <div id="notificationModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">Send Notification</h3>
+                    <button class="close-btn" onclick="closeModal('notificationModal')">&times;</button>
+                </div>
+                
+                <form id="notificationForm">
+                    <div class="form-group">
+                        <label class="form-label">Notification Type</label>
+                        <select class="form-select" id="notificationType" required>
+                            <option value="">Select Type</option>
+                            <option value="tournament">Tournament Announcement</option>
+                            <option value="maintenance">Maintenance Alert</option>
+                            <option value="promotion">Promotion</option>
+                            <option value="general">General</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Target Audience</label>
+                        <select class="form-select" id="notificationTarget" required>
+                            <option value="">Select Audience</option>
+                            <option value="all">All Users</option>
+                            <option value="active">Active Players</option>
+                            <option value="new">New Players</option>
+                            <option value="premium">Premium Players</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Title</label>
+                        <input type="text" class="form-input" id="notificationTitle" placeholder="Notification title" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Message</label>
+                        <textarea class="form-textarea" id="notificationMessage" placeholder="Notification message..." required></textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">
+                        <i class="fas fa-paper-plane"></i> Send Notification
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Add Admin Modal -->
+        <div id="adminModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">Add Admin User</h3>
+                    <button class="close-btn" onclick="closeModal('adminModal')">&times;</button>
+                </div>
+                
+                <form id="adminForm">
+                    <div class="form-group">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" class="form-input" id="adminName" placeholder="Enter full name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Email Address</label>
+                        <input type="email" class="form-input" id="adminEmail" placeholder="admin@example.com" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Role</label>
+                        <select class="form-select" id="adminRole" required>
+                            <option value="">Select Role</option>
+                            <option value="admin">Admin</option>
+                            <option value="moderator">Moderator</option>
+                            <option value="support">Support</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Temporary Password</label>
+                        <input type="password" class="form-input" id="adminPassword" placeholder="Enter temporary password" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-success" style="width: 100%;">
+                        <i class="fas fa-user-plus"></i> Add Admin
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration (Replace with your config)
+        const firebaseConfig = {
+            apiKey: "your-api-key",
+            authDomain: "your-project.firebaseapp.com",
+            projectId: "your-project-id",
+            storageBucket: "your-project.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "your-app-id"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // Global Variables
+        let currentAdmin = null;
+        let tournaments = [];
+        let players = [];
+        let charts = {};
+
+        // Sample Data
+        const sampleTournaments = [
+            {
+                id: 'tournament1',
+                title: 'Weekly Championship',
+                datetime: '2025-01-20T18:00',
+                map: 'Bermuda',
+                prize: 5000,
+                entryFee: 50,
+                maxPlayers: 100,
+                currentPlayers: 78,
+                status: 'live',
+                roomId: '12345',
+                roomPass: 'WEEK2025'
+            },
+            {
+                id: 'tournament2',
+                title: 'Sunday Battle Royale',
+                datetime: '2025-01-22T17:00',
+                map: 'Purgatory',
+                prize: 10000,
+                entryFee: 100,
+                maxPlayers: 200,
+                currentPlayers: 156,
+                status: 'upcoming',
+                roomId: '67890',
+                roomPass: 'SUNDAY22'
+            },
+            {
+                id: 'tournament3',
+                title: 'Daily Clash',
+                datetime: '2025-01-18T16:00',
+                map: 'Kalahari',
+                prize: 2000,
+                entryFee: 25,
+                maxPlayers: 50,
+                currentPlayers: 50,
+                status: 'ended',
+                roomId: '11111',
+                roomPass: 'DAILY18'
+            }
+        ];
+
+        const samplePlayers = [
+            {
+                id: 'player1',
+                name: 'Rohan Kumar',
+                uid: '987654321',
+                email: 'rohan@example.com',
+                walletBalance: 750,
+                tournamentsPlayed: 15,
+                joinedDate: '2024-12-01',
+                status: 'active'
+            },
+            {
+                id: 'player2',
+                name: 'Priya Sharma',
+                uid: '876543210',
+                email: 'priya@example.com',
+                walletBalance: 1200,
+                tournamentsPlayed: 8,
+                joinedDate: '2025-01-10',
+                status: 'active'
+            },
+            {
+                id: 'player3',
+                name: 'Amit Singh',
+                uid: '765432109',
+                email: 'amit@example.com',
+                walletBalance: 50,
+                tournamentsPlayed: 25,
+                joinedDate: '2024-11-15',
+                status: 'active'
+            }
+        ];
+
+        // Navigation Functions
+        function showSection(sectionName) {
+            // Hide all sections
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // Remove active class from all nav tabs
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected section
+            document.getElementById(sectionName).classList.add('active');
+            
+            // Add active class to clicked nav tab
+            event.target.classList.add('active');
+            
+            // Load section-specific data
+            if (sectionName === 'tournaments') {
+                loadTournaments();
+            } else if (sectionName === 'players') {
+                loadPlayers();
+            } else if (sectionName === 'analytics') {
+                loadAnalytics();
+            } else if (sectionName === 'dashboard') {
+                loadDashboard();
+            }
+        }
+
+        // Dashboard Functions
+        function loadDashboard() {
+            updateRealTimeStats();
+            loadRecentActivity();
+        }
+
+        function updateRealTimeStats() {
+            // Simulate real-time updates
+            setInterval(() => {
+                document.getElementById('onlinePlayers').textContent = Math.floor(Math.random() * 500 + 2000);
+                document.getElementById('activeMatches').textContent = Math.floor(Math.random() * 20 + 15);
+                document.getElementById('todaySignups').textContent = Math.floor(Math.random() * 50 + 80);
+            }, 5000);
+        }
+
+        function loadRecentActivity() {
+            const activities = [
+                { time: '2 min ago', text: 'New tournament "Friday Night Battle" created', type: 'success' },
+                { time: '5 min ago', text: 'Player "GameMaster21" joined Weekly Championship', type: 'info' },
+                { time: '12 min ago', text: 'Payment of ₹500 processed for user "FireKing"', type: 'success' },
+                { time: '18 min ago', text: 'Tournament "Daily Clash" ended with 50 participants', type: 'info' },
+                { time: '25 min ago', text: 'New admin "john@admin.com" added to system', type: 'warning' }
+            ];
+
+            const activityHtml = activities.map(activity => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid var(--border);">
+                    <div>
+                        <div style="font-weight: 500;">${activity.text}</div>
+                        <div style="font-size: 0.875rem; color: #64748b;">${activity.time}</div>
+                    </div>
+                    <div class="status-badge status-${activity.type === 'success' ? 'live' : activity.type === 'warning' ? 'upcoming' : 'ended'}">
+                        ${activity.type}
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('recentActivity').innerHTML = activityHtml;
+        }
+
+        // Tournament Functions
+        function loadTournaments() {
+            tournaments = [...sampleTournaments];
+            renderTournamentsTable();
+        }
+
+        function renderTournamentsTable() {
+            const tbody = document.getElementById('tournamentsTableBody');
+            
+            tbody.innerHTML = tournaments.map(tournament => `
+                <tr>
+                    <td>
+                        <div style="font-weight: 600;">${tournament.title}</div>
+                        <div style="font-size: 0.875rem; color: #64748b;">${tournament.map}</div>
+                    </td>
+                    <td>${formatDateTime(tournament.datetime)}</td>
+                    <td>₹${tournament.prize.toLocaleString()}</td>
+                    <td>${tournament.currentPlayers}/${tournament.maxPlayers}</td>
+                    <td>
+                        <span class="status-badge status-${tournament.status === 'live' ? 'live' : tournament.status === 'upcoming' ? 'upcoming' : 'ended'}">
+                            ${tournament.status}
+                        </span>
+                    </td>
+                    <td>
+                        <button class="btn btn-secondary btn-sm" onclick="editTournament('${tournament.id}')">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteTournament('${tournament.id}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function openTournamentModal(tournamentId = null) {
+            const modal = document.getElementById('tournamentModal');
+            const form = document.getElementById('tournamentForm');
+            
+            if (tournamentId) {
+                // Edit mode
+                const tournament = tournaments.find(t => t.id === tournamentId);
+                if (tournament) {
+                    document.getElementById('tournamentModalTitle').textContent = 'Edit Tournament';
+                    // Populate form fields
+                    document.getElementById('tournamentTitle').value = tournament.title;
+                    // ... populate other fields
+                }
+            } else {
+                // Create mode
+                document.getElementById('tournamentModalTitle').textContent = 'Create Tournament';
+                form.reset();
+            }
+            
+            modal.classList.add('active');
+        }
+
+        function editTournament(tournamentId) {
+            openTournamentModal(tournamentId);
+        }
+
+        function deleteTournament(tournamentId) {
+            if (confirm('Are you sure you want to delete this tournament?')) {
+                tournaments = tournaments.filter(t => t.id !== tournamentId);
+                renderTournamentsTable();
+                showMessage('success', 'Tournament deleted successfully!');
+            }
+        }
+
+        // Player Functions
+        function loadPlayers() {
+            players = [...samplePlayers];
+            renderPlayersTable();
+            loadRecentRegistrations();
+        }
+
+        function renderPlayersTable() {
+            const tbody = document.getElementById('playersTableBody');
+            
+            tbody.innerHTML = players.map(player => `
+                <tr>
+                    <td>
+                        <div style="font-weight: 600;">${player.name}</div>
+                        <div style="font-size: 0.875rem; color: #64748b;">${player.email}</div>
+                    </td>
+                    <td>${player.uid}</td>
+                    <td>₹${player.walletBalance}</td>
+                    <td>${player.tournamentsPlayed}</td>
+                    <td>${formatDate(player.joinedDate)}</td>
+                    <td>
+                        <button class="btn btn-secondary btn-sm" onclick="viewPlayer('${player.id}')">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-warning btn-sm" onclick="editPlayer('${player.id}')">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function loadRecentRegistrations() {
+            const registrations = [
+                { player: 'Rohan Kumar', tournament: 'Weekly Championship', time: '5 min ago', fee: '₹50' },
+                { player: 'Priya Sharma', tournament: 'Sunday Battle Royale', time: '12 min ago', fee: '₹100' },
+                { player: 'Amit Singh', tournament: 'Daily Clash', time: '18 min ago', fee: '₹25' },
+                { player: 'Sneha Patel', tournament: 'Weekly Championship', time: '25 min ago', fee: '₹50' }
+            ];
+
+            const registrationsHtml = registrations.map(reg => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid var(--border);">
+                    <div>
+                        <div style="font-weight: 600;">${reg.player}</div>
+                        <div style="font-size: 0.875rem; color: #64748b;">${reg.tournament}</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-weight: 600; color: var(--accent-green);">${reg.fee}</div>
+                        <div style="font-size: 0.875rem; color: #64748b;">${reg.time}</div>
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('recentRegistrations').innerHTML = registrationsHtml;
+        }
+
+        function viewPlayer(playerId) {
+            const player = players.find(p => p.id === playerId);
+            if (player) {
+                showMessage('info', `Viewing player: ${player.name} (${player.email})`);
+            }
+        }
+
+        function editPlayer(playerId) {
+            const player = players.find(p => p.id === playerId);
+            if (player) {
+                showMessage('info', `Edit player feature coming soon for: ${player.name}`);
+            }
+        }
+
+        function exportPlayers() {
+            showMessage('success', 'Player data export started. Download will begin shortly.');
+        }
+
+        // Analytics Functions
+        function loadAnalytics() {
+            setTimeout(() => {
+                initCharts();
+            }, 100);
+        }
+
+        function initCharts() {
+            // Daily Sign-ups Chart
+            const signupsCtx = document.getElementById('signupsChart').getContext('2d');
+            charts.signups = new Chart(signupsCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'Daily Sign-ups',
+                        data: [45, 67, 89, 123, 156, 134, 178],
+                        borderColor: '#2563EB',
+                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            // Revenue Chart
+            const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+            charts.revenue = new Chart(revenueCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+                    datasets: [{
+                        label: 'Revenue (₹)',
+                        data: [12500, 18750, 25300, 31200],
+                        backgroundColor: '#10B981',
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+
+            // Tournament Participation Chart
+            const participationCtx = document.getElementById('participationChart').getContext('2d');
+            charts.participation = new Chart(participationCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Weekly Championship', 'Daily Battle', 'Sunday Royale', 'Special Events'],
+                    datasets: [{
+                        data: [35, 25, 20, 20],
+                        backgroundColor: ['#2563EB', '#10B981', '#FBBF24', '#7C3AED']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+
+            // Referral Performance Chart
+            const referralCtx = document.getElementById('referralChart').getContext('2d');
+            charts.referral = new Chart(referralCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                    datasets: [{
+                        label: 'Referrals',
+                        data: [120, 145, 178, 234, 289, 356],
+                        borderColor: '#F97316',
+                        backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+
+            // Active Players Gauge
+            const gaugeCtx = document.getElementById('activePlayersGauge').getContext('2d');
+            charts.gauge = new Chart(gaugeCtx, {
+                type: 'doughnut',
+                data: {
+                    datasets: [{
+                        data: [2340, 7660], // Active vs Total capacity
+                        backgroundColor: ['#2563EB', '#E2E8F0'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        // Modal Functions
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function openNotificationModal() {
+            document.getElementById('notificationModal').classList.add('active');
+        }
+
+        function openAdminModal() {
+            document.getElementById('adminModal').classList.add('active');
+        }
+
+        // Form Handlers
+        document.getElementById('tournamentForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const tournamentData = Object.fromEntries(formData);
+            
+            try {
+                // Save tournament to Firebase
+                await saveTournament(tournamentData);
+                closeModal('tournamentModal');
+                loadTournaments();
+                showMessage('success', 'Tournament saved successfully!');
+            } catch (error) {
+                showMessage('error', 'Failed to save tournament. Please try again.');
+                console.error('Tournament save error:', error);
+            }
+        });
+
+        document.getElementById('notificationForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const title = document.getElementById('notificationTitle').value;
+            const message = document.getElementById('notificationMessage').value;
+            const type = document.getElementById('notificationType').value;
+            const target = document.getElementById('notificationTarget').value;
+            
+            try {
+                // Send notification via Firebase
+                await sendNotification({ title, message, type, target });
+                closeModal('notificationModal');
+                showMessage('success', 'Notification sent successfully!');
+                e.target.reset();
+            } catch (error) {
+                showMessage('error', 'Failed to send notification. Please try again.');
+                console.error('Notification error:', error);
+            }
+        });
+
+        document.getElementById('paymentConfigForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            showMessage('success', 'Payment configuration saved successfully!');
+        });
+
+        document.getElementById('referralConfigForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            showMessage('success', 'Referral settings updated successfully!');
+        });
+
+        document.getElementById('systemConfigForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            showMessage('success', 'System settings updated successfully!');
+        });
+
+        document.getElementById('adminForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const name = document.getElementById('adminName').value;
+            showMessage('success', `Admin user "${name}" added successfully!`);
+            closeModal('adminModal');
+            e.target.reset();
+        });
+
+        // Firebase Functions
+        async function saveTournament(tournamentData) {
+            try {
+                await db.collection('tournaments').add({
+                    ...tournamentData,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    status: 'upcoming',
+                    currentPlayers: 0
+                });
+                return true;
+            } catch (error) {
+                console.error('Error saving tournament:', error);
+                throw error;
+            }
+        }
+
+        async function sendNotification(notificationData) {
+            try {
+                await db.collection('notifications').add({
+                    ...notificationData,
+                    sentAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    sentBy: currentAdmin?.uid || 'admin'
+                });
+                return true;
+            } catch (error) {
+                console.error('Error sending notification:', error);
+                throw error;
+            }
+        }
+
+        // Utility Functions
+        function formatDateTime(dateTimeString) {
+            const date = new Date(dateTimeString);
+            return date.toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
+            });
+        }
+
+        function showMessage(type, message) {
+            // Create message element
+            const messageEl = document.createElement('div');
+            messageEl.className = `message ${type}`;
+            messageEl.textContent = message;
+            
+            // Insert at top of content
+            const content = document.querySelector('.content');
+            content.insertBefore(messageEl, content.firstChild);
+            
+            // Auto remove after 3 seconds
+            setTimeout(() => {
+                messageEl.remove();
+            }, 3000);
+        }
+
+        // Authentication
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentAdmin = user;
+                console.log('Admin signed in:', user);
+            } else {
+                console.log('Admin signed out');
+                // Redirect to login
+            }
+        });
+
+        // Initialize App
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDashboard();
+            loadTournaments();
+            
+            // Close modals when clicking outside
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        modal.classList.remove('active');
+                    }
+                });
+            });
+
+            // Search functionality
+            document.getElementById('tournamentSearch')?.addEventListener('input', function(e) {
+                const searchTerm = e.target.value.toLowerCase();
+                const filteredTournaments = sampleTournaments.filter(t => 
+                    t.title.toLowerCase().includes(searchTerm) ||
+                    t.map.toLowerCase().includes(searchTerm)
+                );
+                tournaments = filteredTournaments;
+                renderTournamentsTable();
+            });
+
+            document.getElementById('playerSearch')?.addEventListener('input', function(e) {
+                const searchTerm = e.target.value.toLowerCase();
+                const filteredPlayers = samplePlayers.filter(p => 
+                    p.name.toLowerCase().includes(searchTerm) ||
+                    p.email.toLowerCase().includes(searchTerm) ||
+                    p.uid.includes(searchTerm)
+                );
+                players = filteredPlayers;
+                renderPlayersTable();
+            });
+        });
+    </script>
+</body>
+</html>
