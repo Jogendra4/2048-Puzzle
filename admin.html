@@ -90,6 +90,22 @@
             gap: 1rem;
         }
 
+        .admin-info .btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .admin-info .btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
         .live-indicator {
             display: flex;
             align-items: center;
@@ -656,7 +672,10 @@
                         <div class="live-dot"></div>
                         System Online
                     </div>
-                    <div style="color: rgba(255,255,255,0.8);">Welcome, Admin</div>
+                    <div style="color: rgba(255,255,255,0.8);" id="adminWelcome">Welcome, Admin</div>
+                    <button class="btn btn-secondary btn-sm" onclick="adminLogout()" style="margin-left: 1rem;">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
                 </div>
             </div>
         </header>
@@ -1216,6 +1235,37 @@
                 </form>
             </div>
         </div>
+
+        <!-- Admin Login Modal -->
+        <div id="adminLoginModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">Admin Login</h3>
+                </div>
+                
+                <form id="adminLoginForm">
+                    <div class="form-group">
+                        <label class="form-label">Admin Email</label>
+                        <input type="email" class="form-input" id="adminLoginEmail" placeholder="Enter admin email" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-input" id="adminLoginPassword" placeholder="Enter password" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary" id="adminLoginBtn" style="width: 100%;">
+                        <i class="fas fa-sign-in-alt"></i> Sign In as Admin
+                    </button>
+                </form>
+                
+                <div style="text-align: center; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                    <p style="color: #64748b; font-size: 0.875rem;">
+                        <i class="fas fa-info-circle"></i> Admin access only. Contact system administrator if you need access.
+                    </p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -1245,9 +1295,16 @@
         // =====================================================
 
         // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const auth = firebase.auth();
+        let app, db, auth;
+        try {
+            app = firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            auth = firebase.auth();
+            console.log('Firebase initialized successfully');
+        } catch (error) {
+            console.error('Firebase initialization error:', error);
+            showMessage('error', 'Firebase connection failed. Please check configuration.');
+        }
 
         // Global Variables
         let currentAdmin = null;
@@ -1779,15 +1836,24 @@
         document.getElementById('tournamentForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const formData = new FormData(e.target);
-            const tournamentData = Object.fromEntries(formData);
-            
             try {
+                if (!currentAdmin) {
+                    showMessage('error', 'Please sign in as admin first.');
+                    return;
+                }
+
                 // Save tournament to Firebase
-                await saveTournament(tournamentData);
+                await saveTournament();
                 closeModal('tournamentModal');
-                loadTournaments();
-                showMessage('success', 'Tournament saved successfully!');
+                
+                // Refresh tournaments list
+                await loadTournamentsFromFirebase();
+                renderTournamentsTable();
+                
+                // Reset form
+                document.getElementById('tournamentForm').reset();
+                
+                showMessage('success', 'Tournament created successfully!');
             } catch (error) {
                 showMessage('error', 'Failed to save tournament. Please try again.');
                 console.error('Tournament save error:', error);
@@ -1838,14 +1904,45 @@
         });
 
         // Firebase Functions
-        async function saveTournament(tournamentData) {
+        async function saveTournament(formData) {
             try {
-                await db.collection('tournaments').add({
-                    ...tournamentData,
+                if (!currentAdmin) {
+                    throw new Error('Admin authentication required');
+                }
+
+                // Get form values
+                const title = document.getElementById('tournamentTitle').value;
+                const date = document.getElementById('tournamentDate').value;
+                const time = document.getElementById('tournamentTime').value;
+                const map = document.getElementById('tournamentMap').value;
+                const maxPlayers = parseInt(document.getElementById('tournamentMaxPlayers').value);
+                const entryFee = parseInt(document.getElementById('tournamentEntryFee').value);
+                const prize = parseInt(document.getElementById('tournamentPrize').value);
+                const roomId = document.getElementById('tournamentRoomId').value;
+                const roomPass = document.getElementById('tournamentRoomPass').value;
+                const description = document.getElementById('tournamentDescription').value;
+
+                // Combine date and time
+                const datetime = new Date(`${date}T${time}`);
+
+                const tournamentData = {
+                    title: title,
+                    datetime: firebase.firestore.Timestamp.fromDate(datetime),
+                    map: map,
+                    prize: prize,
+                    entryFee: entryFee,
+                    maxPlayers: maxPlayers,
+                    currentPlayers: 0,
+                    roomId: roomId,
+                    roomPass: roomPass,
+                    description: description || '',
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    status: 'upcoming',
-                    currentPlayers: 0
-                });
+                    createdBy: currentAdmin.uid,
+                    status: 'upcoming'
+                };
+
+                await db.collection('tournaments').add(tournamentData);
+                console.log('Tournament saved successfully');
                 return true;
             } catch (error) {
                 console.error('Error saving tournament:', error);
@@ -1920,11 +2017,77 @@
             document.getElementById('pendingPayouts').textContent = `₹${pendingPayouts.toLocaleString()}`;
         }
 
+        // Admin Authentication Functions
+        function showAdminLogin() {
+            document.getElementById('adminLoginModal').classList.add('active');
+        }
+
+        // Admin Login Form Handler
+        document.getElementById('adminLoginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('adminLoginEmail').value;
+            const password = document.getElementById('adminLoginPassword').value;
+            const loginBtn = document.getElementById('adminLoginBtn');
+            
+            loginBtn.innerHTML = '<span class="loading"></span> Signing in...';
+            loginBtn.disabled = true;
+            
+            try {
+                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                const user = userCredential.user;
+                
+                // Check if user is admin (you can add admin role checking here)
+                // For now, any authenticated user can access admin panel
+                // In production, add role verification from Firestore
+                
+                closeModal('adminLoginModal');
+                showMessage('success', 'Admin login successful!');
+                
+            } catch (error) {
+                console.error('Admin login error:', error);
+                showMessage('error', getAuthErrorMessage(error.code));
+            } finally {
+                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In as Admin';
+                loginBtn.disabled = false;
+            }
+        });
+
+        function getAuthErrorMessage(errorCode) {
+            switch (errorCode) {
+                case 'auth/user-not-found':
+                    return 'No admin account found with this email.';
+                case 'auth/wrong-password':
+                    return 'Incorrect password.';
+                case 'auth/invalid-email':
+                    return 'Invalid email address.';
+                case 'auth/network-request-failed':
+                    return 'Network error. Please check your internet connection.';
+                default:
+                    return 'Admin authentication failed. Please try again.';
+            }
+        }
+
+        // Admin Logout Function
+        function adminLogout() {
+            if (confirm('Are you sure you want to logout?')) {
+                auth.signOut().then(() => {
+                    showMessage('success', 'Admin logged out successfully!');
+                }).catch((error) => {
+                    console.error('Logout error:', error);
+                    showMessage('error', 'Logout failed. Please try again.');
+                });
+            }
+        }
+
         // Authentication
         auth.onAuthStateChanged(async (user) => {
             if (user) {
                 currentAdmin = user;
                 console.log('Admin signed in:', user);
+                
+                // Update admin welcome message
+                document.getElementById('adminWelcome').textContent = `Welcome, ${user.displayName || user.email}`;
                 
                 // Load all data
                 await loadTournamentsFromFirebase();
@@ -1937,29 +2100,24 @@
                 console.log('Admin signed out');
                 currentAdmin = null;
                 
+                // Reset admin welcome message
+                document.getElementById('adminWelcome').textContent = 'Welcome, Admin';
+                
                 // Clear sensitive data
                 tournaments = [];
                 players = [];
                 dashboardMetrics = { totalTournaments: 0, totalPlayers: 0, onlinePlayers: 0, walletBalance: 0 };
                 updateDashboardMetrics();
                 
-                showMessage('info', 'Please sign in to access admin features');
+                // Show admin login modal
+                setTimeout(() => {
+                    if (!currentAdmin) {
+                        showMessage('info', 'Please sign in to access admin features');
+                        showAdminLogin();
+                    }
+                }, 1000);
             }
         });
-
-        // Simulate admin sign-in for demo (Remove in production)
-        function demoAdminSignIn() {
-            const demoAdmin = {
-                uid: 'admin-demo-' + Math.random().toString(36).substr(2, 9),
-                email: 'admin@fftournaments.app',
-                displayName: 'Demo Admin'
-            };
-            
-            currentAdmin = demoAdmin;
-            
-            // Trigger auth state changed manually
-            auth.onAuthStateChanged(demoAdmin);
-        }
 
         // Initialize App
         document.addEventListener('DOMContentLoaded', async function() {
@@ -1970,13 +2128,6 @@
             await loadPlayersFromFirebase();
             loadDashboard();
             loadTournaments();
-            
-            // Auto sign-in demo admin for testing (Remove in production)
-            setTimeout(() => {
-                if (!currentAdmin) {
-                    demoAdminSignIn();
-                }
-            }, 1000);
             
             // Start real-time updates
             setInterval(updateRealTimeStats, 5000);

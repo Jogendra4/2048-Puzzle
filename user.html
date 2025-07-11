@@ -84,6 +84,22 @@
             gap: 0.5rem;
         }
 
+        .user-info .btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .user-info .btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
         .wallet-balance {
             background: rgba(255, 255, 255, 0.2);
             padding: 0.25rem 0.75rem;
@@ -650,6 +666,12 @@
                 <div class="user-info">
                     <div class="wallet-balance">₹<span id="walletAmount">0</span></div>
                     <div id="userAvatar">👤</div>
+                    <button class="btn btn-secondary btn-sm" onclick="showLoginForm()" id="loginButton" style="margin-left: 0.5rem; display: none;">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="logout()" id="logoutButton" style="margin-left: 0.5rem; display: none;">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
                 </div>
             </div>
         </header>
@@ -844,6 +866,82 @@
                 </button>
             </div>
         </div>
+
+        <!-- Login Modal -->
+        <div id="loginModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">Sign In</h3>
+                    <button class="close-btn" onclick="closeModal('loginModal')">&times;</button>
+                </div>
+                
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-input" id="loginEmail" placeholder="Enter your email" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-input" id="loginPassword" placeholder="Enter your password" required>
+                    </div>
+                    
+                    <button type="submit" class="submit-button" id="loginBtn">
+                        <i class="fas fa-sign-in-alt"></i> Sign In
+                    </button>
+                </form>
+                
+                <div style="text-align: center; margin-top: 1rem;">
+                    <p style="color: #64748b;">Don't have an account?</p>
+                    <button type="button" class="btn btn-secondary" onclick="showSignupForm()" style="margin-top: 0.5rem;">
+                        Create Account
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Signup Modal -->
+        <div id="signupModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">Create Account</h3>
+                    <button class="close-btn" onclick="closeModal('signupModal')">&times;</button>
+                </div>
+                
+                <form id="signupForm">
+                    <div class="form-group">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" class="form-input" id="signupName" placeholder="Enter your full name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-input" id="signupEmail" placeholder="Enter your email" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-input" id="signupPassword" placeholder="Create a password" required minlength="6">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Free Fire UID (Optional)</label>
+                        <input type="text" class="form-input" id="signupUID" placeholder="Enter your FF UID">
+                    </div>
+                    
+                    <button type="submit" class="submit-button" id="signupBtn">
+                        <i class="fas fa-user-plus"></i> Create Account
+                    </button>
+                </form>
+                
+                <div style="text-align: center; margin-top: 1rem;">
+                    <p style="color: #64748b;">Already have an account?</p>
+                    <button type="button" class="btn btn-secondary" onclick="showLoginForm()" style="margin-top: 0.5rem;">
+                        Sign In
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -908,9 +1006,16 @@
         // =====================================================
 
         // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const auth = firebase.auth();
+        let app, db, auth;
+        try {
+            app = firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            auth = firebase.auth();
+            console.log('Firebase initialized successfully');
+        } catch (error) {
+            console.error('Firebase initialization error:', error);
+            showMessage('error', 'Firebase connection failed. Please check configuration.');
+        }
 
         // Global Variables
         let currentUser = null;
@@ -1433,11 +1538,114 @@
             }, 3000);
         }
 
-        // Authentication
+        // Authentication Functions
+        function showLoginForm() {
+            closeModal('signupModal');
+            document.getElementById('loginModal').classList.add('active');
+        }
+
+        function showSignupForm() {
+            closeModal('loginModal');
+            document.getElementById('signupModal').classList.add('active');
+        }
+
+        // Login Form Handler
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const loginBtn = document.getElementById('loginBtn');
+            
+            loginBtn.innerHTML = '<span class="loading"></span> Signing in...';
+            loginBtn.disabled = true;
+            
+            try {
+                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                closeModal('loginModal');
+                showMessage('success', 'Successfully signed in!');
+            } catch (error) {
+                console.error('Login error:', error);
+                showMessage('error', getAuthErrorMessage(error.code));
+            } finally {
+                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In';
+                loginBtn.disabled = false;
+            }
+        });
+
+        // Signup Form Handler
+        document.getElementById('signupForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('signupName').value;
+            const email = document.getElementById('signupEmail').value;
+            const password = document.getElementById('signupPassword').value;
+            const ffUID = document.getElementById('signupUID').value;
+            const signupBtn = document.getElementById('signupBtn');
+            
+            signupBtn.innerHTML = '<span class="loading"></span> Creating account...';
+            signupBtn.disabled = true;
+            
+            try {
+                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                const user = userCredential.user;
+                
+                // Update user profile
+                await user.updateProfile({
+                    displayName: name
+                });
+                
+                // Create user document in Firestore
+                await db.collection('users').doc(user.uid).set({
+                    name: name,
+                    email: email,
+                    uid: ffUID || generateFFUID(),
+                    walletBalance: 0,
+                    referralCode: generateReferralCode(),
+                    totalTournaments: 0,
+                    totalWinnings: 0,
+                    joinedDate: new Date().toISOString()
+                });
+                
+                closeModal('signupModal');
+                showMessage('success', 'Account created successfully!');
+            } catch (error) {
+                console.error('Signup error:', error);
+                showMessage('error', getAuthErrorMessage(error.code));
+            } finally {
+                signupBtn.innerHTML = '<i class="fas fa-user-plus"></i> Create Account';
+                signupBtn.disabled = false;
+            }
+        });
+
+        function getAuthErrorMessage(errorCode) {
+            switch (errorCode) {
+                case 'auth/user-not-found':
+                    return 'No account found with this email.';
+                case 'auth/wrong-password':
+                    return 'Incorrect password.';
+                case 'auth/email-already-in-use':
+                    return 'Email is already registered.';
+                case 'auth/weak-password':
+                    return 'Password should be at least 6 characters.';
+                case 'auth/invalid-email':
+                    return 'Invalid email address.';
+                case 'auth/network-request-failed':
+                    return 'Network error. Please check your internet connection.';
+                default:
+                    return 'Authentication failed. Please try again.';
+            }
+        }
+
+        // Authentication State
         auth.onAuthStateChanged(async (user) => {
             if (user) {
                 currentUser = user;
                 console.log('User signed in:', user);
+                
+                // Show/hide login buttons
+                document.getElementById('loginButton').style.display = 'none';
+                document.getElementById('logoutButton').style.display = 'inline-flex';
                 
                 // Load user profile and data
                 await loadUserProfile();
@@ -1454,15 +1662,26 @@
                 currentUser = null;
                 userProfile = null;
                 
+                // Show/hide login buttons
+                document.getElementById('loginButton').style.display = 'inline-flex';
+                document.getElementById('logoutButton').style.display = 'none';
+                
                 // Clear user-specific data
                 document.getElementById('walletAmount').textContent = '0';
                 document.getElementById('profileWallet').textContent = '0';
                 document.getElementById('profileName').textContent = 'Guest';
                 document.getElementById('profileUID').textContent = 'Not signed in';
                 document.getElementById('referralCode').textContent = 'Please sign in';
+                document.getElementById('userTournamentCount').textContent = '0';
+                document.getElementById('userTotalWinnings').textContent = '₹0';
                 
-                // Show sign-in prompt
-                showMessage('info', 'Please sign in to access all features');
+                // Show login modal if not signed in
+                setTimeout(() => {
+                    if (!currentUser) {
+                        showMessage('info', 'Please sign in to access all features');
+                        showLoginForm();
+                    }
+                }, 1000);
                 
                 // Still load tournaments for browsing
                 await loadTournamentsFromFirebase();
@@ -1471,19 +1690,16 @@
             }
         });
 
-        // Simulate user sign-in for demo (Remove in production)
-        function demoSignIn() {
-            // Create a demo user for testing
-            const demoUser = {
-                uid: 'demo-user-' + Math.random().toString(36).substr(2, 9),
-                email: 'demo@example.com',
-                displayName: 'Demo Player'
-            };
-            
-            currentUser = demoUser;
-            
-            // Trigger the auth state changed manually
-            auth.onAuthStateChanged(demoUser);
+        // Logout Function
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                auth.signOut().then(() => {
+                    showMessage('success', 'Logged out successfully!');
+                }).catch((error) => {
+                    console.error('Logout error:', error);
+                    showMessage('error', 'Logout failed. Please try again.');
+                });
+            }
         }
 
         // Initialize App
@@ -1494,13 +1710,6 @@
             await loadTournamentsFromFirebase();
             loadLiveTournaments();
             loadTournaments('live');
-            
-            // Auto sign-in demo user for testing (Remove in production)
-            setTimeout(() => {
-                if (!currentUser) {
-                    demoSignIn();
-                }
-            }, 1000);
             
             // Close modals when clicking outside
             document.querySelectorAll('.modal').forEach(modal => {
