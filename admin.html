@@ -692,6 +692,9 @@
                 <button class="nav-tab" onclick="showSection('players')">
                     <i class="fas fa-users"></i> Players
                 </button>
+                <button class="nav-tab" onclick="showSection('withdrawals')">
+                    <i class="fas fa-university"></i> Withdrawals
+                </button>
                 <button class="nav-tab" onclick="showSection('analytics')">
                     <i class="fas fa-chart-bar"></i> Analytics
                 </button>
@@ -878,6 +881,75 @@
                         <h3 class="card-title">Recent Tournament Registrations</h3>
                     </div>
                     <div id="recentRegistrations"></div>
+                </div>
+            </section>
+
+            <!-- Withdrawals Section -->
+            <section id="withdrawals" class="section">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Withdrawal Requests</h3>
+                        <div>
+                            <button class="btn btn-secondary btn-sm" onclick="loadWithdrawals()">
+                                <i class="fas fa-sync"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Status Summary -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                        <div class="metric-card green">
+                            <div class="metric-icon">✅</div>
+                            <div class="metric-value" id="approvedWithdrawals">0</div>
+                            <div class="metric-label">Approved Today</div>
+                        </div>
+                        <div class="metric-card orange">
+                            <div class="metric-icon">⏳</div>
+                            <div class="metric-value" id="pendingWithdrawals">0</div>
+                            <div class="metric-label">Pending Requests</div>
+                        </div>
+                        <div class="metric-card red">
+                            <div class="metric-icon">❌</div>
+                            <div class="metric-value" id="rejectedWithdrawals">0</div>
+                            <div class="metric-label">Rejected Today</div>
+                        </div>
+                        <div class="metric-card purple">
+                            <div class="metric-icon">💰</div>
+                            <div class="metric-value">₹<span id="totalWithdrawalAmount">0</span></div>
+                            <div class="metric-label">Total Amount Pending</div>
+                        </div>
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="filters">
+                        <select class="form-select filter-select" id="withdrawalStatusFilter">
+                            <option value="">All Status</option>
+                            <option value="pending">Pending</option>
+                            <option value="approved">Approved</option>
+                            <option value="rejected">Rejected</option>
+                        </select>
+                        <input type="date" class="form-input filter-select" id="withdrawalDateFilter" placeholder="Filter by date">
+                    </div>
+
+                    <!-- Withdrawals Table -->
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Player</th>
+                                    <th>Amount</th>
+                                    <th>Bank Account</th>
+                                    <th>Purpose</th>
+                                    <th>Requested</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="withdrawalsTableBody">
+                                <!-- Dynamic content -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
 
@@ -1384,6 +1456,7 @@
         let currentAdmin = null;
         let tournaments = [];
         let players = [];
+        let withdrawals = [];
         let charts = {};
         let dashboardMetrics = {
             totalTournaments: 0,
@@ -1640,6 +1713,8 @@
                 loadTournaments();
             } else if (sectionName === 'players') {
                 loadPlayers();
+            } else if (sectionName === 'withdrawals') {
+                loadWithdrawals();
             } else if (sectionName === 'analytics') {
                 loadAnalytics();
             } else if (sectionName === 'dashboard') {
@@ -2151,6 +2226,286 @@
 
         function exportPlayers() {
             showMessage('success', 'Player data export started. Download will begin shortly.');
+        }
+
+        // Withdrawal Management Functions
+        async function loadWithdrawals() {
+            try {
+                if (useDemoMode) {
+                    withdrawals = JSON.parse(localStorage.getItem('demo_withdrawals') || '[]');
+                } else {
+                    if (!db) {
+                        throw new Error('Firebase not initialized');
+                    }
+
+                    const snapshot = await db.collection('withdrawals')
+                        .orderBy('requestedAt', 'desc')
+                        .get();
+                    
+                    withdrawals = [];
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        withdrawals.push({
+                            id: doc.id,
+                            ...data,
+                            requestedAt: data.requestedAt?.toDate?.() || new Date(data.requestedAt)
+                        });
+                    });
+                }
+                
+                renderWithdrawalsTable();
+                updateWithdrawalMetrics();
+                console.log(`✅ Admin loaded ${withdrawals.length} withdrawal requests`);
+                
+            } catch (error) {
+                console.error('❌ Error loading withdrawals:', error);
+                showMessage('error', 'Failed to load withdrawal requests');
+            }
+        }
+
+        function renderWithdrawalsTable() {
+            const tbody = document.getElementById('withdrawalsTableBody');
+            
+            if (withdrawals.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 2rem; color: #64748b;">
+                            <div style="font-size: 2rem; margin-bottom: 1rem;">💳</div>
+                            <div>No withdrawal requests</div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            tbody.innerHTML = withdrawals.map(withdrawal => `
+                <tr>
+                    <td>
+                        <div style="font-weight: 600;">${withdrawal.userName || 'Unknown User'}</div>
+                        <div style="font-size: 0.875rem; color: #64748b;">${withdrawal.userEmail || 'No email'}</div>
+                    </td>
+                    <td style="font-weight: 600; color: var(--accent-green);">₹${withdrawal.amount}</td>
+                    <td>${withdrawal.bankAccount || 'N/A'}</td>
+                    <td>${withdrawal.purpose || 'N/A'}</td>
+                    <td>${formatDateTime(withdrawal.requestedAt)}</td>
+                    <td>
+                        <span class="status-badge status-${withdrawal.status === 'approved' ? 'live' : withdrawal.status === 'rejected' ? 'ended' : 'upcoming'}">
+                            ${withdrawal.status}
+                        </span>
+                    </td>
+                    <td>
+                        ${withdrawal.status === 'pending' ? `
+                            <button class="btn btn-success btn-sm" onclick="approveWithdrawal('${withdrawal.id}')">
+                                <i class="fas fa-check"></i> Approve
+                            </button>
+                            <button class="btn btn-danger btn-sm" onclick="rejectWithdrawal('${withdrawal.id}')">
+                                <i class="fas fa-times"></i> Reject
+                            </button>
+                        ` : `
+                            <span style="color: #64748b; font-size: 0.875rem;">
+                                ${withdrawal.status === 'approved' ? 'Processed' : 'Rejected'}
+                            </span>
+                        `}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function updateWithdrawalMetrics() {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            const todayWithdrawals = withdrawals.filter(w => {
+                const requestDate = new Date(w.requestedAt);
+                requestDate.setHours(0, 0, 0, 0);
+                return requestDate.getTime() === today.getTime();
+            });
+            
+            const approved = todayWithdrawals.filter(w => w.status === 'approved').length;
+            const pending = withdrawals.filter(w => w.status === 'pending').length;
+            const rejected = todayWithdrawals.filter(w => w.status === 'rejected').length;
+            const totalPendingAmount = withdrawals
+                .filter(w => w.status === 'pending')
+                .reduce((sum, w) => sum + (w.amount || 0), 0);
+            
+            document.getElementById('approvedWithdrawals').textContent = approved;
+            document.getElementById('pendingWithdrawals').textContent = pending;
+            document.getElementById('rejectedWithdrawals').textContent = rejected;
+            document.getElementById('totalWithdrawalAmount').textContent = totalPendingAmount.toLocaleString();
+        }
+
+        async function approveWithdrawal(withdrawalId) {
+            const withdrawal = withdrawals.find(w => w.id === withdrawalId);
+            if (!withdrawal) {
+                showMessage('error', 'Withdrawal request not found');
+                return;
+            }
+
+            if (confirm(`Approve withdrawal of ₹${withdrawal.amount} for ${withdrawal.userName}?`)) {
+                try {
+                    // Update withdrawal status
+                    await updateWithdrawalStatus(withdrawalId, 'approved');
+                    
+                    // Deduct money from user's wallet (if not already deducted)
+                    await deductWithdrawalAmount(withdrawal);
+                    
+                    // Notify user
+                    await notifyUser(withdrawal, 'approved');
+                    
+                    showMessage('success', `✅ Withdrawal approved! User will be notified.`);
+                    
+                    // Refresh data
+                    await loadWithdrawals();
+                    
+                } catch (error) {
+                    console.error('❌ Error approving withdrawal:', error);
+                    showMessage('error', '❌ Failed to approve withdrawal. Please try again.');
+                }
+            }
+        }
+
+        async function rejectWithdrawal(withdrawalId) {
+            const withdrawal = withdrawals.find(w => w.id === withdrawalId);
+            if (!withdrawal) {
+                showMessage('error', 'Withdrawal request not found');
+                return;
+            }
+
+            const reason = prompt(`Reject withdrawal of ₹${withdrawal.amount} for ${withdrawal.userName}?\n\nPlease enter rejection reason:`);
+            if (reason !== null) {
+                try {
+                    // Update withdrawal status with reason
+                    await updateWithdrawalStatus(withdrawalId, 'rejected', reason);
+                    
+                    // Notify user with reason
+                    await notifyUser(withdrawal, 'rejected', reason);
+                    
+                    showMessage('success', `❌ Withdrawal rejected. User will be notified.`);
+                    
+                    // Refresh data
+                    await loadWithdrawals();
+                    
+                } catch (error) {
+                    console.error('❌ Error rejecting withdrawal:', error);
+                    showMessage('error', '❌ Failed to reject withdrawal. Please try again.');
+                }
+            }
+        }
+
+        async function updateWithdrawalStatus(withdrawalId, status, reason = '') {
+            try {
+                if (useDemoMode) {
+                    // Update localStorage
+                    const storedWithdrawals = JSON.parse(localStorage.getItem('demo_withdrawals') || '[]');
+                    const index = storedWithdrawals.findIndex(w => w.id === withdrawalId);
+                    if (index !== -1) {
+                        storedWithdrawals[index].status = status;
+                        if (reason) storedWithdrawals[index].rejectionReason = reason;
+                        storedWithdrawals[index].processedAt = new Date().toISOString();
+                        localStorage.setItem('demo_withdrawals', JSON.stringify(storedWithdrawals));
+                    }
+                    
+                    console.log(`💳 Demo: Withdrawal ${withdrawalId} marked as ${status}`);
+                } else {
+                    // Update Firebase
+                    if (!db) {
+                        throw new Error('Firebase not initialized');
+                    }
+
+                    const updateData = {
+                        status: status,
+                        processedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+                    if (reason) updateData.rejectionReason = reason;
+
+                    await db.collection('withdrawals').doc(withdrawalId).update(updateData);
+                    console.log(`💳 Firebase: Withdrawal ${withdrawalId} marked as ${status}`);
+                }
+
+                return true;
+            } catch (error) {
+                console.error('Error updating withdrawal status:', error);
+                throw error;
+            }
+        }
+
+        async function deductWithdrawalAmount(withdrawal) {
+            try {
+                // Find the player and deduct money from their wallet
+                const playerId = withdrawal.userId;
+                const amount = withdrawal.amount;
+                
+                if (useDemoMode) {
+                    // Update in demo storage
+                    const users = demoStorage.getUsers();
+                    const userIndex = users.findIndex(u => u.id === playerId);
+                    if (userIndex !== -1) {
+                        users[userIndex].walletBalance = Math.max(0, (users[userIndex].walletBalance || 0) - amount);
+                        demoStorage.saveUsers(users);
+                        
+                        // Also update local players array
+                        const localPlayerIndex = players.findIndex(p => p.id === playerId);
+                        if (localPlayerIndex !== -1) {
+                            players[localPlayerIndex].walletBalance = users[userIndex].walletBalance;
+                        }
+                    }
+                } else {
+                    // Update Firebase
+                    if (!db) return;
+                    
+                    const userRef = db.collection('users').doc(playerId);
+                    const userDoc = await userRef.get();
+                    
+                    if (userDoc.exists) {
+                        const currentBalance = userDoc.data().walletBalance || 0;
+                        const newBalance = Math.max(0, currentBalance - amount);
+                        
+                        await userRef.update({
+                            walletBalance: newBalance
+                        });
+                        
+                        // Save transaction record
+                        await db.collection('user_transactions').add({
+                            userId: playerId,
+                            amount: -amount,
+                            previousBalance: currentBalance,
+                            newBalance: newBalance,
+                            reason: 'withdrawal_approved',
+                            note: `Withdrawal approved: ${withdrawal.bankAccount}`,
+                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error deducting withdrawal amount:', error);
+                throw error;
+            }
+        }
+
+        async function notifyUser(withdrawal, status, reason = '') {
+            try {
+                const notificationData = {
+                    userId: withdrawal.userId,
+                    amount: withdrawal.amount,
+                    bankAccount: withdrawal.bankAccount,
+                    status: status,
+                    reason: reason,
+                    timestamp: Date.now()
+                };
+
+                if (useDemoMode) {
+                    // Trigger user notification via localStorage
+                    localStorage.setItem('demo_withdrawal_update', JSON.stringify(notificationData));
+                    console.log(`📢 Demo: User notified of withdrawal ${status}`);
+                } else {
+                    // In Firebase mode, you could use Firebase Cloud Messaging or another notification service
+                    console.log(`📢 Firebase: User notification triggered for withdrawal ${status}`);
+                }
+                
+            } catch (error) {
+                console.error('Error notifying user:', error);
+            }
         }
 
         // Analytics Functions
