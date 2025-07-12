@@ -583,6 +583,39 @@
             border-color: var(--accent-blue);
         }
 
+        .form-select {
+            width: 100%;
+            padding: 0.875rem;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            font-size: 1rem;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-select:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .form-textarea {
+            width: 100%;
+            padding: 0.875rem;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            font-size: 1rem;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 80px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-textarea:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
         .submit-button {
             width: 100%;
             background: var(--accent-blue);
@@ -792,9 +825,14 @@
                 <div class="wallet-section">
                     <div>💰 Wallet Balance</div>
                     <div class="wallet-balance-large">₹<span id="profileWallet">0</span></div>
-                    <button class="topup-button" onclick="openTopupModal()">
-                        <i class="fas fa-plus"></i> Top-up Wallet
-                    </button>
+                    <div style="display: flex; gap: 0.5rem; width: 100%; margin-top: 1rem;">
+                        <button class="topup-button" onclick="openTopupModal()" style="flex: 1;">
+                            <i class="fas fa-plus"></i> Top-up Wallet
+                        </button>
+                        <button class="withdrawal-button" onclick="openWithdrawalModal()" style="flex: 1; background: var(--accent-red); color: white; border: none; padding: 0.75rem; border-radius: 8px; font-weight: 500;">
+                            <i class="fas fa-university"></i> Withdraw
+                        </button>
+                    </div>
                 </div>
 
                 <div class="card">
@@ -836,7 +874,7 @@
                     </div>
                     
                     <button type="submit" class="submit-button" id="joinTournamentBtn">
-                        <i class="fas fa-credit-card"></i> Pay & Join Tournament
+                        <i class="fas fa-credit-card"></i> Join Tournament
                     </button>
                 </form>
             </div>
@@ -864,6 +902,73 @@
                 <button class="submit-button" onclick="processTopup()">
                     <i class="fas fa-credit-card"></i> Pay Now
                 </button>
+            </div>
+        </div>
+
+        <!-- Withdrawal Modal -->
+        <div id="withdrawalModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">Withdraw Money</h3>
+                    <button class="close-btn" onclick="closeModal('withdrawalModal')">&times;</button>
+                </div>
+                
+                <div style="background: var(--bg-secondary); padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 0.875rem; color: #64748b;">Available Balance</div>
+                            <div style="font-size: 1.5rem; font-weight: bold; color: var(--accent-green);" id="withdrawalBalance">₹0</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 0.875rem; color: #64748b;">Min. Withdrawal</div>
+                            <div style="font-size: 1.125rem; font-weight: bold; color: var(--accent-blue);">₹50</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <form id="withdrawalForm">
+                    <div class="form-group">
+                        <label class="form-label">Withdrawal Amount</label>
+                        <input type="number" id="withdrawalAmount" class="form-input" placeholder="Enter amount to withdraw" min="50" required>
+                        <div style="font-size: 0.875rem; color: #64748b; margin-top: 0.25rem;">
+                            <i class="fas fa-info-circle"></i> Minimum withdrawal: ₹50
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Bank Account</label>
+                        <select id="bankAccount" class="form-select" required>
+                            <option value="">Select Bank Account</option>
+                            <option value="primary">Primary Account (****1234)</option>
+                            <option value="secondary">Secondary Account (****5678)</option>
+                            <option value="add_new">+ Add New Account</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Withdrawal Purpose</label>
+                        <select id="withdrawalPurpose" class="form-select">
+                            <option value="winnings">Tournament Winnings</option>
+                            <option value="refund">Refund</option>
+                            <option value="cashout">Cash Out</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    
+                    <div id="withdrawalPreview" style="background: var(--bg-secondary); padding: 1rem; border-radius: 12px; margin-bottom: 1rem; display: none;">
+                        <!-- Preview will be shown here -->
+                    </div>
+                    
+                    <button type="submit" class="submit-button" id="withdrawalBtn" style="width: 100%;">
+                        <i class="fas fa-university"></i> Withdraw Money
+                    </button>
+                </form>
+                
+                <div style="text-align: center; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                    <p style="color: #64748b; font-size: 0.875rem;">
+                        <i class="fas fa-clock"></i> Withdrawals are processed within 24-48 hours
+                    </p>
+                </div>
             </div>
         </div>
 
@@ -1120,6 +1225,76 @@
             }
             
             console.log(`💰 User wallet updated: ₹${oldBalance} → ₹${newBalance}`);
+        }
+
+        // Update user wallet function
+        async function updateUserWallet(amount, reason, note) {
+            if (!currentUser || !userProfile) {
+                throw new Error('User not authenticated');
+            }
+
+            const currentBalance = userProfile.walletBalance || 0;
+            const newBalance = Math.max(0, currentBalance + amount);
+            
+            // Create transaction record
+            const transaction = {
+                userId: currentUser.uid,
+                amount: amount,
+                previousBalance: currentBalance,
+                newBalance: newBalance,
+                reason: reason || 'wallet_update',
+                note: note || '',
+                timestamp: new Date().toISOString()
+            };
+
+            try {
+                if (useDemoMode) {
+                    // Update localStorage
+                    userProfile.walletBalance = newBalance;
+                    
+                    // Update users array in localStorage
+                    const users = demoStorage.getUsers();
+                    const userIndex = users.findIndex(u => u.id === currentUser.uid);
+                    if (userIndex !== -1) {
+                        users[userIndex].walletBalance = newBalance;
+                        demoStorage.saveUsers(users);
+                    }
+                    
+                    // Save transaction to demo storage
+                    const transactions = JSON.parse(localStorage.getItem('demo_user_transactions') || '[]');
+                    transactions.push({ ...transaction, id: 'demo_' + Date.now() });
+                    localStorage.setItem('demo_user_transactions', JSON.stringify(transactions));
+                    
+                    console.log(`💰 Demo: User wallet updated from ₹${currentBalance} to ₹${newBalance}`);
+                } else {
+                    // Update Firebase
+                    if (!db) {
+                        throw new Error('Firebase not initialized');
+                    }
+
+                    // Update user document
+                    await db.collection('users').doc(currentUser.uid).update({
+                        walletBalance: newBalance
+                    });
+
+                    // Save transaction record
+                    await db.collection('user_transactions').add({
+                        ...transaction,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+
+                    console.log(`💰 Firebase: User wallet updated from ₹${currentBalance} to ₹${newBalance}`);
+                }
+
+                // Update local user profile
+                userProfile.walletBalance = newBalance;
+                updateUIWithUserData();
+                
+                return true;
+            } catch (error) {
+                console.error('Error updating user wallet:', error);
+                throw error;
+            }
         }
 
         // Firebase Data Loading Functions
@@ -1448,6 +1623,25 @@
             selectedTournament = tournaments.find(t => t.id === tournamentId);
             if (!selectedTournament) return;
             
+            // Check if user is signed in
+            if (!currentUser) {
+                showMessage('error', 'Please sign in to register for tournaments');
+                showLoginForm();
+                return;
+            }
+            
+            // Check wallet balance
+            const userBalance = userProfile?.walletBalance || 0;
+            const entryFee = selectedTournament.entryFee || 0;
+            
+            if (userBalance < entryFee) {
+                showMessage('error', `Insufficient balance! You need ₹${entryFee} but have only ₹${userBalance}. Please top up your wallet.`);
+                setTimeout(() => {
+                    openTopupModal();
+                }, 1000);
+                return;
+            }
+            
             const modal = document.getElementById('registrationModal');
             const tournamentInfo = document.getElementById('tournamentInfo');
             
@@ -1458,6 +1652,18 @@
                         <div><strong>Entry Fee:</strong> ₹${selectedTournament.entryFee}</div>
                         <div><strong>Prize Pool:</strong> ₹${selectedTournament.prize}</div>
                         <div><strong>Time:</strong> ${formatDateTime(selectedTournament.time)}</div>
+                    </div>
+                    <div style="background: var(--bg-primary); padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-size: 0.875rem; color: #64748b;">Your Wallet Balance</div>
+                                <div style="font-size: 1.25rem; font-weight: bold; color: var(--accent-green);">₹${userBalance}</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 0.875rem; color: #64748b;">After Registration</div>
+                                <div style="font-size: 1.25rem; font-weight: bold; color: var(--accent-blue);">₹${userBalance - entryFee}</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
@@ -1475,31 +1681,46 @@
             
             if (!selectedTournament || !playerName || !playerUID) return;
             
+            // Final balance check
+            const userBalance = userProfile?.walletBalance || 0;
+            const entryFee = selectedTournament.entryFee || 0;
+            
+            if (userBalance < entryFee) {
+                showMessage('error', `Insufficient balance! You need ₹${entryFee} but have only ₹${userBalance}.`);
+                return;
+            }
+            
             // Show loading
             joinBtn.innerHTML = '<span class="loading"></span> Processing...';
             joinBtn.disabled = true;
             
             try {
-                // Process payment
-                await processPayment(selectedTournament.entryFee, selectedTournament.title);
+                // Deduct entry fee from wallet
+                await updateUserWallet(-entryFee, 'tournament_entry', `Tournament: ${selectedTournament.title}`);
                 
                 // Register for tournament
                 await joinTournament(selectedTournament.id, {
                     name: playerName,
                     uid: playerUID,
-                    userId: 'user123' // Replace with actual user ID
+                    userId: currentUser.uid,
+                    entryFee: entryFee
                 });
                 
                 // Update UI
-                showMessage('success', 'Successfully joined tournament! Room details sent to your email.');
+                showMessage('success', `Successfully joined tournament! ₹${entryFee} deducted from your wallet.`);
                 closeModal('registrationModal');
-                updateWalletBalance(-selectedTournament.entryFee);
+                
+                // Update local user profile
+                if (userProfile) {
+                    userProfile.walletBalance -= entryFee;
+                    updateUIWithUserData();
+                }
                 
             } catch (error) {
                 showMessage('error', 'Failed to join tournament. Please try again.');
                 console.error('Registration error:', error);
             } finally {
-                joinBtn.innerHTML = '<i class="fas fa-credit-card"></i> Pay & Join Tournament';
+                joinBtn.innerHTML = '<i class="fas fa-credit-card"></i> Join Tournament';
                 joinBtn.disabled = false;
             }
         });
@@ -1594,6 +1815,159 @@
                 showMessage('error', 'Top-up failed. Please try again.');
             }
         }
+
+        // Withdrawal Functions
+        function openWithdrawalModal() {
+            if (!currentUser) {
+                showMessage('error', 'Please sign in to withdraw money');
+                showLoginForm();
+                return;
+            }
+
+            const userBalance = userProfile?.walletBalance || 0;
+            if (userBalance < 50) {
+                showMessage('error', 'Insufficient balance! Minimum withdrawal amount is ₹50');
+                return;
+            }
+
+            // Update withdrawal balance display
+            document.getElementById('withdrawalBalance').textContent = `₹${userBalance}`;
+            
+            // Reset form
+            document.getElementById('withdrawalForm').reset();
+            document.getElementById('withdrawalPreview').style.display = 'none';
+            
+            // Show modal
+            document.getElementById('withdrawalModal').classList.add('active');
+        }
+
+        // Withdrawal Form Handler
+        document.getElementById('withdrawalForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            if (!currentUser) {
+                showMessage('error', 'Please sign in to withdraw money');
+                return;
+            }
+
+            const amount = parseFloat(document.getElementById('withdrawalAmount').value);
+            const bankAccount = document.getElementById('bankAccount').value;
+            const purpose = document.getElementById('withdrawalPurpose').value;
+            const withdrawalBtn = document.getElementById('withdrawalBtn');
+            
+            const userBalance = userProfile?.walletBalance || 0;
+            
+            // Validation
+            if (!amount || amount < 50) {
+                showMessage('error', 'Minimum withdrawal amount is ₹50');
+                return;
+            }
+            
+            if (amount > userBalance) {
+                showMessage('error', `Insufficient balance! You have ₹${userBalance} but trying to withdraw ₹${amount}`);
+                return;
+            }
+            
+            if (!bankAccount) {
+                showMessage('error', 'Please select a bank account');
+                return;
+            }
+            
+            if (bankAccount === 'add_new') {
+                showMessage('info', 'Please add your bank account details first');
+                return;
+            }
+            
+            // Show loading
+            withdrawalBtn.innerHTML = '<span class="loading"></span> Processing...';
+            withdrawalBtn.disabled = true;
+            
+            try {
+                // Process withdrawal
+                await processWithdrawal(amount, bankAccount, purpose);
+                
+                // Update wallet balance
+                await updateUserWallet(-amount, 'withdrawal', `Bank withdrawal: ${bankAccount}`);
+                
+                closeModal('withdrawalModal');
+                showMessage('success', `Withdrawal request submitted! ₹${amount} will be transferred to your ${bankAccount} account within 24-48 hours.`);
+                
+            } catch (error) {
+                console.error('Withdrawal error:', error);
+                showMessage('error', 'Withdrawal failed. Please try again.');
+            } finally {
+                withdrawalBtn.innerHTML = '<i class="fas fa-university"></i> Withdraw Money';
+                withdrawalBtn.disabled = false;
+            }
+        });
+
+        async function processWithdrawal(amount, bankAccount, purpose) {
+            // Create withdrawal record
+            const withdrawal = {
+                userId: currentUser.uid,
+                amount: amount,
+                bankAccount: bankAccount,
+                purpose: purpose,
+                status: 'pending',
+                requestedAt: new Date().toISOString(),
+                estimatedCompletion: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString() // 48 hours
+            };
+
+            try {
+                if (useDemoMode) {
+                    // Save to demo storage
+                    const withdrawals = JSON.parse(localStorage.getItem('demo_withdrawals') || '[]');
+                    withdrawals.push({ ...withdrawal, id: 'demo_' + Date.now() });
+                    localStorage.setItem('demo_withdrawals', JSON.stringify(withdrawals));
+                    
+                    console.log(`💳 Demo: Withdrawal request created for ₹${amount}`);
+                } else {
+                    // Save to Firebase
+                    if (!db) {
+                        throw new Error('Firebase not initialized');
+                    }
+
+                    await db.collection('withdrawals').add({
+                        ...withdrawal,
+                        requestedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+
+                    console.log(`💳 Firebase: Withdrawal request created for ₹${amount}`);
+                }
+
+                return true;
+            } catch (error) {
+                console.error('Error processing withdrawal:', error);
+                throw error;
+            }
+        }
+
+        // Update withdrawal preview when amount changes
+        document.getElementById('withdrawalAmount').addEventListener('input', function() {
+            const amount = parseFloat(this.value) || 0;
+            const userBalance = userProfile?.walletBalance || 0;
+            const preview = document.getElementById('withdrawalPreview');
+            
+            if (amount < 50 || amount > userBalance) {
+                preview.style.display = 'none';
+                return;
+            }
+            
+            const newBalance = userBalance - amount;
+            
+            preview.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: 600; color: var(--accent-red);">Withdraw ₹${amount}</div>
+                        <div style="font-size: 0.875rem; color: #64748b;">Current: ₹${userBalance} → New: ₹${newBalance}</div>
+                    </div>
+                    <div style="font-size: 1.25rem; font-weight: bold; color: var(--accent-red);">
+                        ₹${newBalance}
+                    </div>
+                </div>
+            `;
+            preview.style.display = 'block';
+        });
 
         // Referral Functions
         function shareOnWhatsApp() {

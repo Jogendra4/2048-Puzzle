@@ -145,6 +145,59 @@ service cloud.firestore {
 - Reason: Admin Adjustment
 - Result: User sees "💰 Your wallet balance has been updated to ₹2000"
 
+## 🎮 Tournament Registration & Wallet Balance Check
+
+### How It Works:
+1. **Balance Validation**: Users can only register for tournaments if they have sufficient wallet balance
+2. **Automatic Deduction**: Entry fees are deducted from wallet balance upon registration
+3. **Real-time Updates**: Balance changes are immediately reflected in the UI
+
+### Test Tournament Registration:
+
+1. **Open user panel** → Go to "Tournaments" section
+2. **Try to register** for a tournament
+3. **If insufficient balance**:
+   - See error message: "Insufficient balance! You need ₹50 but have only ₹20"
+   - Automatically redirected to top-up modal
+4. **If sufficient balance**:
+   - See balance preview before registration
+   - Entry fee deducted upon successful registration
+   - Success message: "Successfully joined tournament! ₹50 deducted from your wallet"
+
+## 💳 Money Withdrawal System
+
+### Test Withdrawal Feature:
+
+1. **Open user panel** → Go to "Profile" section
+2. **Click "Withdraw" button** (red button next to Top-up)
+3. **Check balance requirements**:
+   - Minimum withdrawal: ₹50
+   - Must have sufficient balance
+4. **Fill withdrawal form**:
+   - Enter amount (₹50 minimum)
+   - Select bank account
+   - Choose withdrawal purpose
+5. **See live preview** of balance after withdrawal
+6. **Submit withdrawal request**
+7. **See success message**: "Withdrawal request submitted! ₹100 will be transferred to your Primary Account within 24-48 hours"
+
+### Test Cases:
+
+**Valid Withdrawal:**
+- Balance: ₹500
+- Withdraw: ₹200
+- Result: Success, balance becomes ₹300
+
+**Invalid Withdrawal (Low Balance):**
+- Balance: ₹30
+- Try to withdraw: ₹50
+- Result: Error message about insufficient balance
+
+**Invalid Withdrawal (Below Minimum):**
+- Balance: ₹100
+- Try to withdraw: ₹20
+- Result: Error message about minimum ₹50
+
 ## �🐛 Troubleshooting
 
 ### Problem: "Firebase connection failed"
