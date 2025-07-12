@@ -1088,17 +1088,62 @@
                     loadTournaments('live');
                 }
             }
+            
+            // Listen for wallet updates from admin panel
+            if (e.key === 'demo_wallet_update' && useDemoMode && currentUser) {
+                const walletUpdate = JSON.parse(e.newValue || '{}');
+                if (walletUpdate.playerId === currentUser.uid) {
+                    console.log('💰 Wallet updated by admin - refreshing balance');
+                    handleWalletUpdate(walletUpdate.newBalance);
+                }
+            }
         });
+
+        // Handle wallet update from admin
+        function handleWalletUpdate(newBalance) {
+            if (!userProfile) return;
+            
+            const oldBalance = userProfile.walletBalance || 0;
+            const difference = newBalance - oldBalance;
+            
+            // Update user profile
+            userProfile.walletBalance = newBalance;
+            updateUIWithUserData();
+            
+            // Show notification to user
+            if (difference > 0) {
+                showMessage('success', `🎉 Your wallet has been credited with ₹${difference}! New balance: ₹${newBalance}`);
+            } else if (difference < 0) {
+                showMessage('info', `💳 ₹${Math.abs(difference)} has been deducted from your wallet. New balance: ₹${newBalance}`);
+            } else {
+                showMessage('info', `💰 Your wallet balance has been updated to ₹${newBalance}`);
+            }
+            
+            console.log(`💰 User wallet updated: ₹${oldBalance} → ₹${newBalance}`);
+        }
 
         // Firebase Data Loading Functions
         async function loadUserProfile() {
             if (!currentUser) return;
             
+            if (useDemoMode) {
+                // In demo mode, userProfile is already set in auth state
+                updateUIWithUserData();
+                return;
+            }
+            
             try {
+                if (!db) {
+                    throw new Error('Firebase not initialized');
+                }
+
                 const userDoc = await db.collection('users').doc(currentUser.uid).get();
                 if (userDoc.exists) {
                     userProfile = userDoc.data();
                     updateUIWithUserData();
+                    
+                    // Set up real-time listener for wallet updates in Firebase mode
+                    setupWalletListener();
                 } else {
                     // Create new user profile
                     userProfile = {
@@ -1113,10 +1158,48 @@
                     };
                     await db.collection('users').doc(currentUser.uid).set(userProfile);
                     updateUIWithUserData();
+                    setupWalletListener();
                 }
             } catch (error) {
                 console.error('Error loading user profile:', error);
                 showMessage('error', 'Failed to load profile data');
+            }
+        }
+
+        // Set up real-time wallet listener for Firebase mode
+        let walletListener = null;
+        function setupWalletListener() {
+            if (!currentUser || !db || useDemoMode || walletListener) return;
+            
+            try {
+                walletListener = db.collection('users').doc(currentUser.uid)
+                    .onSnapshot((doc) => {
+                        if (doc.exists) {
+                            const data = doc.data();
+                            const newBalance = data.walletBalance || 0;
+                            const oldBalance = userProfile?.walletBalance || 0;
+                            
+                            if (newBalance !== oldBalance && userProfile) {
+                                console.log('💰 Firebase wallet update detected');
+                                handleWalletUpdate(newBalance);
+                            }
+                        }
+                    }, (error) => {
+                        console.error('Error in wallet listener:', error);
+                    });
+                    
+                console.log('🔥 Firebase wallet listener set up');
+            } catch (error) {
+                console.error('Error setting up wallet listener:', error);
+            }
+        }
+
+        // Clean up wallet listener when user signs out
+        function cleanupWalletListener() {
+            if (walletListener) {
+                walletListener();
+                walletListener = null;
+                console.log('🔥 Firebase wallet listener cleaned up');
             }
         }
 
@@ -1775,8 +1858,11 @@
                     loadLiveTournaments();
                     loadTournaments('live');
                     
-                    showMessage('info', '🔥 Demo mode: Browse and test tournament features. Admin changes will sync here.');
+                    showMessage('success', '🔥 Demo mode: You\'re connected! Admin wallet updates will appear here instantly.');
                 } else {
+                    // Clean up wallet listener
+                    cleanupWalletListener();
+                    
                     // Show/hide login buttons
                     document.getElementById('loginButton').style.display = 'inline-flex';
                     document.getElementById('logoutButton').style.display = 'none';

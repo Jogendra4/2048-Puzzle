@@ -1266,6 +1266,64 @@
                 </div>
             </div>
         </div>
+
+        <!-- Wallet Management Modal -->
+        <div id="walletManagementModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">Manage Player Wallet</h3>
+                    <button class="close-btn" onclick="closeModal('walletManagementModal')">&times;</button>
+                </div>
+                
+                <div id="playerWalletInfo" style="background: var(--bg-secondary); padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem;">
+                    <!-- Player info will be populated here -->
+                </div>
+                
+                <form id="walletManagementForm">
+                    <div class="form-group">
+                        <label class="form-label">Action Type</label>
+                        <select class="form-select" id="walletActionType" required onchange="updateWalletActionUI()">
+                            <option value="">Select Action</option>
+                            <option value="add">Add Money (Bonus/Refund)</option>
+                            <option value="deduct">Deduct Money (Penalty/Fee)</option>
+                            <option value="set">Set Balance (Override)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" id="amountLabel">Amount (₹)</label>
+                        <input type="number" class="form-input" id="walletAmount" placeholder="Enter amount" min="1" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Reason (Optional)</label>
+                        <select class="form-select" id="walletReason">
+                            <option value="">Select Reason</option>
+                            <option value="tournament_bonus">Tournament Bonus</option>
+                            <option value="referral_bonus">Referral Bonus</option>
+                            <option value="refund">Refund</option>
+                            <option value="promotion">Promotional Credit</option>
+                            <option value="penalty">Penalty</option>
+                            <option value="admin_adjustment">Admin Adjustment</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Custom Note</label>
+                        <textarea class="form-textarea" id="walletNote" placeholder="Enter custom note (optional)" style="min-height: 80px;"></textarea>
+                    </div>
+                    
+                    <div id="walletPreview" style="background: var(--bg-secondary); padding: 1rem; border-radius: 12px; margin-bottom: 1rem; display: none;">
+                        <!-- Preview will be shown here -->
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary" id="walletManagementBtn" style="width: 100%;">
+                        <i class="fas fa-wallet"></i> Update Wallet
+                    </button>
+                </form>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -1435,7 +1493,15 @@
         }
 
         async function loadPlayersFromFirebase() {
+            if (useDemoMode) {
+                return loadPlayersFromStorage();
+            }
+
             try {
+                if (!db) {
+                    throw new Error('Firebase not initialized');
+                }
+
                 const snapshot = await db.collection('users').get();
                 
                 players = [];
@@ -1455,12 +1521,77 @@
                 dashboardMetrics.walletBalance = totalWalletBalance;
                 dashboardMetrics.onlinePlayers = Math.floor(players.length * 0.15); // Simulate 15% online
                 updateDashboardMetrics();
+                console.log(`✅ Admin loaded ${players.length} players from Firebase`);
                 return players;
             } catch (error) {
-                console.error('Error loading players:', error);
-                showMessage('error', 'Failed to load players');
-                return [];
+                console.error('❌ Error loading players from Firebase:', error);
+                console.log('🔄 Admin switching to demo mode for players');
+                useDemoMode = true;
+                return loadPlayersFromStorage();
             }
+        }
+
+        function loadPlayersFromStorage() {
+            players = demoStorage.getUsers();
+            
+            // If no demo users exist, create some sample ones
+            if (players.length === 0) {
+                players = [
+                    {
+                        id: 'demo-user',
+                        name: 'Demo User',
+                        email: 'demo@user.com',
+                        uid: '123456789',
+                        walletBalance: 500,
+                        totalTournaments: 3,
+                        totalWinnings: 1500,
+                        joinedDate: new Date().toISOString()
+                    },
+                    {
+                        id: 'demo-player1',
+                        name: 'Rohan Kumar',
+                        email: 'rohan@example.com',
+                        uid: '987654321',
+                        walletBalance: 750,
+                        totalTournaments: 15,
+                        totalWinnings: 2500,
+                        joinedDate: '2024-12-01T10:00:00.000Z'
+                    },
+                    {
+                        id: 'demo-player2',
+                        name: 'Priya Sharma',
+                        email: 'priya@example.com',
+                        uid: '876543210',
+                        walletBalance: 1200,
+                        totalTournaments: 8,
+                        totalWinnings: 3000,
+                        joinedDate: '2025-01-10T15:30:00.000Z'
+                    },
+                    {
+                        id: 'demo-player3',
+                        name: 'Amit Singh',
+                        email: 'amit@example.com',
+                        uid: '765432109',
+                        walletBalance: 50,
+                        totalTournaments: 25,
+                        totalWinnings: 5000,
+                        joinedDate: '2024-11-15T09:15:00.000Z'
+                    }
+                ];
+                demoStorage.saveUsers(players);
+            }
+            
+            let totalWalletBalance = 0;
+            players.forEach(player => {
+                totalWalletBalance += player.walletBalance || 0;
+            });
+            
+            dashboardMetrics.totalPlayers = players.length;
+            dashboardMetrics.walletBalance = totalWalletBalance;
+            dashboardMetrics.onlinePlayers = Math.floor(players.length * 0.15);
+            updateDashboardMetrics();
+            console.log(`📱 Admin loaded ${players.length} players from localStorage`);
+            return players;
         }
 
         function updateTournamentStatus() {
@@ -1679,6 +1810,9 @@
                         <button class="btn btn-secondary btn-sm" onclick="viewPlayer('${player.id}')">
                             <i class="fas fa-eye"></i>
                         </button>
+                        <button class="btn btn-success btn-sm" onclick="manageWallet('${player.id}')">
+                            <i class="fas fa-wallet"></i>
+                        </button>
                         <button class="btn btn-warning btn-sm" onclick="editPlayer('${player.id}')">
                             <i class="fas fa-edit"></i>
                         </button>
@@ -1770,6 +1904,248 @@
             const player = players.find(p => p.id === playerId);
             if (player) {
                 showMessage('info', `Edit player feature coming soon for: ${player.name}`);
+            }
+        }
+
+        // Wallet Management Functions
+        let selectedPlayer = null;
+
+        function manageWallet(playerId) {
+            selectedPlayer = players.find(p => p.id === playerId);
+            if (!selectedPlayer) {
+                showMessage('error', 'Player not found');
+                return;
+            }
+
+            // Populate player info
+            document.getElementById('playerWalletInfo').innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: 600; font-size: 1.1rem;">${selectedPlayer.name || 'Unknown Player'}</div>
+                        <div style="color: #64748b; font-size: 0.875rem;">${selectedPlayer.email || 'No email'}</div>
+                        <div style="color: #64748b; font-size: 0.875rem;">FF UID: ${selectedPlayer.uid || 'N/A'}</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 0.875rem; color: #64748b;">Current Balance</div>
+                        <div style="font-size: 1.5rem; font-weight: bold; color: var(--accent-green);">₹${selectedPlayer.walletBalance || 0}</div>
+                    </div>
+                </div>
+            `;
+
+            // Reset form
+            document.getElementById('walletManagementForm').reset();
+            document.getElementById('walletPreview').style.display = 'none';
+
+            // Show modal
+            document.getElementById('walletManagementModal').classList.add('active');
+        }
+
+        function updateWalletActionUI() {
+            const actionType = document.getElementById('walletActionType').value;
+            const amountLabel = document.getElementById('amountLabel');
+            const walletAmount = document.getElementById('walletAmount');
+            
+            switch (actionType) {
+                case 'add':
+                    amountLabel.textContent = 'Amount to Add (₹)';
+                    walletAmount.placeholder = 'Enter amount to add';
+                    walletAmount.min = '1';
+                    break;
+                case 'deduct':
+                    amountLabel.textContent = 'Amount to Deduct (₹)';
+                    walletAmount.placeholder = 'Enter amount to deduct';
+                    walletAmount.min = '1';
+                    break;
+                case 'set':
+                    amountLabel.textContent = 'New Balance (₹)';
+                    walletAmount.placeholder = 'Enter new balance';
+                    walletAmount.min = '0';
+                    break;
+                default:
+                    amountLabel.textContent = 'Amount (₹)';
+                    walletAmount.placeholder = 'Enter amount';
+                    walletAmount.min = '1';
+            }
+
+            // Update preview when amount changes
+            updateWalletPreview();
+        }
+
+        function updateWalletPreview() {
+            const actionType = document.getElementById('walletActionType').value;
+            const amount = parseFloat(document.getElementById('walletAmount').value) || 0;
+            const currentBalance = selectedPlayer ? (selectedPlayer.walletBalance || 0) : 0;
+            const preview = document.getElementById('walletPreview');
+
+            if (!actionType || !amount || !selectedPlayer) {
+                preview.style.display = 'none';
+                return;
+            }
+
+            let newBalance = currentBalance;
+            let actionText = '';
+            let colorClass = '';
+
+            switch (actionType) {
+                case 'add':
+                    newBalance = currentBalance + amount;
+                    actionText = `Add ₹${amount}`;
+                    colorClass = 'var(--accent-green)';
+                    break;
+                case 'deduct':
+                    newBalance = Math.max(0, currentBalance - amount);
+                    actionText = `Deduct ₹${amount}`;
+                    colorClass = 'var(--accent-red)';
+                    break;
+                case 'set':
+                    newBalance = amount;
+                    actionText = `Set balance to ₹${amount}`;
+                    colorClass = 'var(--accent-blue)';
+                    break;
+            }
+
+            preview.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: 600; color: ${colorClass};">${actionText}</div>
+                        <div style="font-size: 0.875rem; color: #64748b;">Current: ₹${currentBalance} → New: ₹${newBalance}</div>
+                    </div>
+                    <div style="font-size: 1.25rem; font-weight: bold; color: ${colorClass};">
+                        ₹${newBalance}
+                    </div>
+                </div>
+            `;
+            preview.style.display = 'block';
+        }
+
+
+
+        // Wallet Management Form Handler
+        document.getElementById('walletManagementForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            if (!selectedPlayer) {
+                showMessage('error', 'No player selected');
+                return;
+            }
+
+            const actionType = document.getElementById('walletActionType').value;
+            const amount = parseFloat(document.getElementById('walletAmount').value);
+            const reason = document.getElementById('walletReason').value;
+            const note = document.getElementById('walletNote').value;
+            const walletBtn = document.getElementById('walletManagementBtn');
+
+            if (!actionType || !amount) {
+                showMessage('error', 'Please fill all required fields');
+                return;
+            }
+
+            walletBtn.innerHTML = '<span class="loading"></span> Updating...';
+            walletBtn.disabled = true;
+
+            try {
+                await updatePlayerWallet(selectedPlayer.id, actionType, amount, reason, note);
+                closeModal('walletManagementModal');
+                showMessage('success', `✅ Wallet updated successfully! Player will see the change instantly.`);
+                
+                // Refresh players list
+                await loadPlayersFromFirebase();
+                renderPlayersTable();
+                updateDashboardMetrics();
+                
+            } catch (error) {
+                console.error('❌ Wallet update error:', error);
+                showMessage('error', '❌ Failed to update wallet. Please try again.');
+            } finally {
+                walletBtn.innerHTML = '<i class="fas fa-wallet"></i> Update Wallet';
+                walletBtn.disabled = false;
+            }
+        });
+
+        // Update Player Wallet Function
+        async function updatePlayerWallet(playerId, actionType, amount, reason, note) {
+            try {
+                let player = players.find(p => p.id === playerId);
+                if (!player) {
+                    throw new Error('Player not found');
+                }
+
+                const currentBalance = player.walletBalance || 0;
+                let newBalance = currentBalance;
+
+                // Calculate new balance
+                switch (actionType) {
+                    case 'add':
+                        newBalance = currentBalance + amount;
+                        break;
+                    case 'deduct':
+                        newBalance = Math.max(0, currentBalance - amount);
+                        break;
+                    case 'set':
+                        newBalance = amount;
+                        break;
+                    default:
+                        throw new Error('Invalid action type');
+                }
+
+                // Create wallet transaction record
+                const transaction = {
+                    playerId: playerId,
+                    adminId: currentAdmin?.uid || 'demo-admin',
+                    actionType: actionType,
+                    amount: amount,
+                    previousBalance: currentBalance,
+                    newBalance: newBalance,
+                    reason: reason || 'admin_adjustment',
+                    note: note || '',
+                    timestamp: new Date().toISOString()
+                };
+
+                if (useDemoMode) {
+                    // Update localStorage
+                    player.walletBalance = newBalance;
+                    demoStorage.saveUsers(players);
+                    
+                    // Save transaction to demo storage
+                    const transactions = JSON.parse(localStorage.getItem('demo_wallet_transactions') || '[]');
+                    transactions.push({ ...transaction, id: 'demo_' + Date.now() });
+                    localStorage.setItem('demo_wallet_transactions', JSON.stringify(transactions));
+                    
+                    // Trigger user panel update
+                    localStorage.setItem('demo_wallet_update', JSON.stringify({
+                        playerId: playerId,
+                        newBalance: newBalance,
+                        timestamp: Date.now()
+                    }));
+                    
+                    console.log(`💰 Demo: Updated ${player.name}'s wallet from ₹${currentBalance} to ₹${newBalance}`);
+                } else {
+                    // Update Firebase
+                    if (!db) {
+                        throw new Error('Firebase not initialized');
+                    }
+
+                    // Update user document
+                    await db.collection('users').doc(playerId).update({
+                        walletBalance: newBalance
+                    });
+
+                    // Save transaction record
+                    await db.collection('wallet_transactions').add({
+                        ...transaction,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+
+                    console.log(`💰 Firebase: Updated ${player.name}'s wallet from ₹${currentBalance} to ₹${newBalance}`);
+                }
+
+                // Update local player object
+                player.walletBalance = newBalance;
+                
+                return true;
+            } catch (error) {
+                console.error('Error updating player wallet:', error);
+                throw error;
             }
         }
 
@@ -2245,6 +2621,12 @@
             
             // Start real-time updates
             setInterval(updateRealTimeStats, 5000);
+            
+            // Set up wallet amount input listener for real-time preview
+            const walletAmountInput = document.getElementById('walletAmount');
+            if (walletAmountInput) {
+                walletAmountInput.addEventListener('input', updateWalletPreview);
+            }
             
             // Close modals when clicking outside
             document.querySelectorAll('.modal').forEach(modal => {

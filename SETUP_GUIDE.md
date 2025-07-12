@@ -108,7 +108,44 @@ service cloud.firestore {
 - ✅ Production-ready data persistence
 - ✅ Multi-device sync
 
-## 🐛 Troubleshooting
+## � Testing Wallet Management
+
+### Test Admin Wallet Management:
+
+1. **Open both panels** in separate browser tabs
+2. **Admin Panel** → Go to "Players" section
+3. **See demo players** with different wallet balances
+4. **Click wallet button** (💰) for any player
+5. **Select action**:
+   - **Add Money**: Give bonus/refund
+   - **Deduct Money**: Apply penalty/fee
+   - **Set Balance**: Override current balance
+6. **Enter amount** and reason
+7. **See live preview** of balance change
+8. **Click "Update Wallet"**
+9. **User Panel** → See instant balance update notification! 🎉
+
+### Example Test Cases:
+
+**Bonus Test:**
+- Player: "Demo User" (₹500)
+- Action: Add ₹250 
+- Reason: Tournament Bonus
+- Result: User sees "🎉 Your wallet has been credited with ₹250! New balance: ₹750"
+
+**Penalty Test:**
+- Player: "Rohan Kumar" (₹750)
+- Action: Deduct ₹100
+- Reason: Penalty
+- Result: User sees "💳 ₹100 has been deducted from your wallet. New balance: ₹650"
+
+**Override Test:**
+- Player: "Priya Sharma" (₹1200)
+- Action: Set ₹2000
+- Reason: Admin Adjustment
+- Result: User sees "💰 Your wallet balance has been updated to ₹2000"
+
+## �🐛 Troubleshooting
 
 ### Problem: "Firebase connection failed"
 **Solution:** Check your firebaseConfig values match exactly from Firebase Console
