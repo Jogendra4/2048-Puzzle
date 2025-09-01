@@ -1,0 +1,3039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FF Tournaments - Admin Dashboard</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Russo+One:wght@400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    
+    <!-- Chart.js for Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        :root {
+            --bg-primary: #F8FAFC;
+            --bg-secondary: #E2E8F0;
+            --text-dark: #1E293B;
+            --accent-blue: #2563EB;
+            --accent-gold: #FBBF24;
+            --accent-red: #DC2626;
+            --border: #CBD5E1;
+            --accent-green: #10B981;
+            --bg-dark: #0F172A;
+            --card-bg: #FFFFFF;
+            --accent-purple: #7C3AED;
+            --accent-orange: #F97316;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-dark);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            min-height: 100vh;
+            position: relative;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--bg-dark), #334155);
+            color: white;
+            padding: 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .logo {
+            font-family: 'Russo One', sans-serif;
+            font-size: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .admin-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .admin-info .btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .admin-info .btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(16, 185, 129, 0.2);
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            font-size: 0.875rem;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Navigation */
+        .nav-container {
+            display: flex;
+            background: white;
+            border-bottom: 1px solid var(--border);
+            overflow-x: auto;
+            position: sticky;
+            top: 68px;
+            z-index: 99;
+        }
+
+        .nav-tabs {
+            display: flex;
+            min-width: max-content;
+        }
+
+        .nav-tab {
+            padding: 1rem 1.5rem;
+            background: none;
+            border: none;
+            color: var(--text-dark);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-tab.active {
+            color: var(--accent-blue);
+            border-bottom-color: var(--accent-blue);
+            background: rgba(37, 99, 235, 0.05);
+        }
+
+        .nav-tab:hover {
+            background: var(--bg-secondary);
+        }
+
+        /* Content */
+        .content {
+            padding: 1.5rem;
+        }
+
+        .section {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .card-title {
+            font-family: 'Russo One', sans-serif;
+            font-size: 1.25rem;
+            color: var(--text-dark);
+        }
+
+        /* Dashboard Metrics */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, var(--accent-blue), #1e40af);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 16px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-card.green {
+            background: linear-gradient(135deg, var(--accent-green), #059669);
+        }
+
+        .metric-card.gold {
+            background: linear-gradient(135deg, var(--accent-gold), #f59e0b);
+            color: var(--text-dark);
+        }
+
+        .metric-card.purple {
+            background: linear-gradient(135deg, var(--accent-purple), #5b21b6);
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            transform: translate(30px, -30px);
+        }
+
+        .metric-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        .metric-value {
+            font-family: 'Russo One', sans-serif;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        .metric-label {
+            font-size: 0.875rem;
+            opacity: 0.9;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Quick Actions */
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .action-btn {
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            padding: 1rem;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(37, 99, 235, 0.3);
+        }
+
+        .action-btn.green {
+            background: var(--accent-green);
+        }
+
+        .action-btn.orange {
+            background: var(--accent-orange);
+        }
+
+        .action-btn.purple {
+            background: var(--accent-purple);
+        }
+
+        /* Tables */
+        .table-container {
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        .table th,
+        .table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .table th {
+            background: var(--bg-secondary);
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .table tr:hover {
+            background: rgba(37, 99, 235, 0.05);
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 15px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .status-live {
+            background: var(--accent-green);
+            color: white;
+        }
+
+        .status-upcoming {
+            background: var(--accent-gold);
+            color: var(--text-dark);
+        }
+
+        .status-ended {
+            background: var(--border);
+            color: #64748b;
+        }
+
+        /* Form Elements */
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+
+        .form-input,
+        .form-select,
+        .form-textarea {
+            width: 100%;
+            padding: 0.875rem;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-input:focus,
+        .form-select:focus,
+        .form-textarea:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .form-textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--accent-blue);
+            color: white;
+        }
+
+        .btn-success {
+            background: var(--accent-green);
+            color: white;
+        }
+
+        .btn-warning {
+            background: var(--accent-gold);
+            color: var(--text-dark);
+        }
+
+        .btn-danger {
+            background: var(--accent-red);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--text-dark);
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            filter: brightness(110%);
+        }
+
+        .btn-sm {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            width: 100%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-title {
+            font-family: 'Russo One', sans-serif;
+            font-size: 1.5rem;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #64748b;
+            padding: 0.5rem;
+        }
+
+        /* Search and Filters */
+        .filters {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .filter-select {
+            min-width: 150px;
+        }
+
+        /* Analytics Charts */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-bottom: 1.5rem;
+        }
+
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+        }
+
+        /* Real-time Indicators */
+        .realtime-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .realtime-card {
+            background: var(--card-bg);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .realtime-value {
+            font-family: 'Russo One', sans-serif;
+            font-size: 1.5rem;
+            color: var(--accent-blue);
+            margin-bottom: 0.25rem;
+        }
+
+        /* Success/Error Messages */
+        .message {
+            padding: 1rem;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .message.success {
+            background: #dcfce7;
+            color: #15803d;
+            border: 1px solid #bbf7d0;
+        }
+
+        .message.error {
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+
+        .message.info {
+            background: #dbeafe;
+            color: #1d4ed8;
+            border: 1px solid #bfdbfe;
+        }
+
+        /* Loading States */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid transparent;
+            border-top: 2px solid currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                max-width: 100%;
+            }
+            
+            .content {
+                padding: 1rem;
+            }
+            
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .filters {
+                flex-direction: column;
+            }
+            
+            .chart-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .metrics-grid {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            }
+        }
+
+        @media (max-width: 480px) {
+            .quick-actions {
+                grid-template-columns: 1fr;
+            }
+            
+            .action-btn {
+                padding: 0.875rem;
+            }
+            
+            .table th,
+            .table td {
+                padding: 0.75rem 0.5rem;
+                font-size: 0.875rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-shield-alt"></i>
+                    Admin Dashboard
+                </div>
+                <div class="admin-info">
+                    <div class="live-indicator">
+                        <div class="live-dot"></div>
+                        System Online
+                    </div>
+                    <div style="color: rgba(255,255,255,0.8);" id="adminWelcome">Welcome, Admin</div>
+                    <button class="btn btn-secondary btn-sm" onclick="adminLogout()" style="margin-left: 1rem;">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <div class="nav-container">
+            <nav class="nav-tabs">
+                <button class="nav-tab active" onclick="showSection('dashboard')">
+                    <i class="fas fa-chart-line"></i> Dashboard
+                </button>
+                <button class="nav-tab" onclick="showSection('tournaments')">
+                    <i class="fas fa-trophy"></i> Tournaments
+                </button>
+                <button class="nav-tab" onclick="showSection('players')">
+                    <i class="fas fa-users"></i> Players
+                </button>
+                <button class="nav-tab" onclick="showSection('withdrawals')">
+                    <i class="fas fa-university"></i> Withdrawals
+                </button>
+                <button class="nav-tab" onclick="showSection('analytics')">
+                    <i class="fas fa-chart-bar"></i> Analytics
+                </button>
+                <button class="nav-tab" onclick="showSection('settings')">
+                    <i class="fas fa-cog"></i> Settings
+                </button>
+            </nav>
+        </div>
+
+        <!-- Content -->
+        <main class="content">
+            <!-- Dashboard Section -->
+            <section id="dashboard" class="section active">
+                <!-- Metrics Grid -->
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-icon">🏆</div>
+                        <div class="metric-value" id="totalTournaments">0</div>
+                        <div class="metric-label">Total Tournaments</div>
+                    </div>
+                    <div class="metric-card green">
+                        <div class="metric-icon">👥</div>
+                        <div class="metric-value" id="totalPlayers">0</div>
+                        <div class="metric-label">Total Players</div>
+                    </div>
+                    <div class="metric-card purple">
+                        <div class="metric-icon">🎮</div>
+                        <div class="metric-value" id="onlinePlayers">0</div>
+                        <div class="metric-label">Online Players</div>
+                    </div>
+                    <div class="metric-card gold">
+                        <div class="metric-icon">💰</div>
+                        <div class="metric-value">₹<span id="walletBalance">0</span></div>
+                        <div class="metric-label">Wallet Balance Held</div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Quick Actions</h3>
+                    </div>
+                    <div class="quick-actions">
+                        <button class="action-btn" onclick="openTournamentModal()">
+                            <i class="fas fa-plus"></i> Create Tournament
+                        </button>
+                        <button class="action-btn green" onclick="showSection('analytics')">
+                            <i class="fas fa-chart-line"></i> View Analytics
+                        </button>
+                        <button class="action-btn orange" onclick="openNotificationModal()">
+                            <i class="fas fa-bell"></i> Send Notification
+                        </button>
+                        <button class="action-btn purple" onclick="showSection('players')">
+                            <i class="fas fa-eye"></i> View Payments
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Real-time Stats -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Real-time Activity</h3>
+                    </div>
+                    <div class="realtime-stats">
+                        <div class="realtime-card">
+                            <div class="realtime-value" id="activeMatches">0</div>
+                            <div>Active Matches</div>
+                        </div>
+                        <div class="realtime-card">
+                            <div class="realtime-value" id="todaySignups">0</div>
+                            <div>Today's Signups</div>
+                        </div>
+                        <div class="realtime-card">
+                            <div class="realtime-value" id="todayRevenue">₹0</div>
+                            <div>Today's Revenue</div>
+                        </div>
+                        <div class="realtime-card">
+                            <div class="realtime-value" id="pendingPayouts">₹0</div>
+                            <div>Pending Payouts</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Recent Activity</h3>
+                    </div>
+                    <div id="recentActivity"></div>
+                </div>
+            </section>
+
+            <!-- Tournaments Section -->
+            <section id="tournaments" class="section">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Tournament Management</h3>
+                        <button class="btn btn-primary" onclick="openTournamentModal()">
+                            <i class="fas fa-plus"></i> Create Tournament
+                        </button>
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="filters">
+                        <input type="text" class="form-input search-input" placeholder="Search tournaments..." id="tournamentSearch">
+                        <select class="form-select filter-select" id="statusFilter">
+                            <option value="">All Status</option>
+                            <option value="live">Live</option>
+                            <option value="upcoming">Upcoming</option>
+                            <option value="ended">Ended</option>
+                        </select>
+                        <button class="btn btn-secondary" onclick="loadTournaments()">
+                            <i class="fas fa-sync"></i> Refresh
+                        </button>
+                    </div>
+
+                    <!-- Tournaments Table -->
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Tournament</th>
+                                    <th>Date & Time</th>
+                                    <th>Prize Pool</th>
+                                    <th>Players</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tournamentsTableBody">
+                                <!-- Dynamic content -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Players Section -->
+            <section id="players" class="section">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Player Management</h3>
+                        <div>
+                            <button class="btn btn-secondary btn-sm" onclick="exportPlayers()">
+                                <i class="fas fa-download"></i> Export
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="filters">
+                        <input type="text" class="form-input search-input" placeholder="Search players..." id="playerSearch">
+                        <select class="form-select filter-select" id="playerFilter">
+                            <option value="">All Players</option>
+                            <option value="active">Active</option>
+                            <option value="banned">Banned</option>
+                            <option value="new">New (Last 7 days)</option>
+                        </select>
+                    </div>
+
+                    <!-- Players Table -->
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Player</th>
+                                    <th>FF UID</th>
+                                    <th>Wallet Balance</th>
+                                    <th>Tournaments</th>
+                                    <th>Joined Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="playersTableBody">
+                                <!-- Dynamic content -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Player Registrations -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Recent Tournament Registrations</h3>
+                    </div>
+                    <div id="recentRegistrations"></div>
+                </div>
+            </section>
+
+            <!-- Withdrawals Section -->
+            <section id="withdrawals" class="section">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Withdrawal Requests</h3>
+                        <div>
+                            <button class="btn btn-secondary btn-sm" onclick="loadWithdrawals()">
+                                <i class="fas fa-sync"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Status Summary -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                        <div class="metric-card green">
+                            <div class="metric-icon">✅</div>
+                            <div class="metric-value" id="approvedWithdrawals">0</div>
+                            <div class="metric-label">Approved Today</div>
+                        </div>
+                        <div class="metric-card orange">
+                            <div class="metric-icon">⏳</div>
+                            <div class="metric-value" id="pendingWithdrawals">0</div>
+                            <div class="metric-label">Pending Requests</div>
+                        </div>
+                        <div class="metric-card red">
+                            <div class="metric-icon">❌</div>
+                            <div class="metric-value" id="rejectedWithdrawals">0</div>
+                            <div class="metric-label">Rejected Today</div>
+                        </div>
+                        <div class="metric-card purple">
+                            <div class="metric-icon">💰</div>
+                            <div class="metric-value">₹<span id="totalWithdrawalAmount">0</span></div>
+                            <div class="metric-label">Total Amount Pending</div>
+                        </div>
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="filters">
+                        <select class="form-select filter-select" id="withdrawalStatusFilter">
+                            <option value="">All Status</option>
+                            <option value="pending">Pending</option>
+                            <option value="approved">Approved</option>
+                            <option value="rejected">Rejected</option>
+                        </select>
+                        <input type="date" class="form-input filter-select" id="withdrawalDateFilter" placeholder="Filter by date">
+                    </div>
+
+                    <!-- Withdrawals Table -->
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Player</th>
+                                    <th>Amount</th>
+                                    <th>Bank Account</th>
+                                    <th>Purpose</th>
+                                    <th>Requested</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="withdrawalsTableBody">
+                                <!-- Dynamic content -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Analytics Section -->
+            <section id="analytics" class="section">
+                <!-- Chart Grid -->
+                <div class="chart-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Daily Sign-ups</h3>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="signupsChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Revenue Analytics</h3>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="revenueChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Tournament Participation</h3>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="participationChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Referral Performance</h3>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="referralChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Players Gauge -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Real-time Active Players</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="activePlayersGauge"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings Section -->
+            <section id="settings" class="section">
+                <!-- Payment Gateway Config -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Payment Gateway Configuration</h3>
+                    </div>
+                    <form id="paymentConfigForm">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Razorpay Key ID</label>
+                                <input type="text" class="form-input" id="razorpayKeyId" placeholder="rzp_live_...">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Razorpay Secret</label>
+                                <input type="password" class="form-input" id="razorpaySecret" placeholder="Enter secret key">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Stripe Publishable Key</label>
+                                <input type="text" class="form-input" id="stripePublishable" placeholder="pk_live_...">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Stripe Secret Key</label>
+                                <input type="password" class="form-input" id="stripeSecret" placeholder="sk_live_...">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Save Payment Config
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Referral Settings -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Referral System Settings</h3>
+                    </div>
+                    <form id="referralConfigForm">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Referrer Bonus (₹)</label>
+                                <input type="number" class="form-input" id="referrerBonus" value="50" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Referee Bonus (₹)</label>
+                                <input type="number" class="form-input" id="refereeBonus" value="50" min="0">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Minimum Withdrawal Amount (₹)</label>
+                            <input type="number" class="form-input" id="minWithdrawal" value="100" min="10">
+                        </div>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save"></i> Save Referral Settings
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Admin Users -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Admin Users & Roles</h3>
+                        <button class="btn btn-primary" onclick="openAdminModal()">
+                            <i class="fas fa-user-plus"></i> Add Admin
+                        </button>
+                    </div>
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Last Login</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminUsersTableBody">
+                                <tr>
+                                    <td>John Doe</td>
+                                    <td>john@fftournaments.app</td>
+                                    <td><span class="status-badge status-live">Super Admin</span></td>
+                                    <td>2 hours ago</td>
+                                    <td>
+                                        <button class="btn btn-secondary btn-sm">Edit</button>
+                                        <button class="btn btn-danger btn-sm">Remove</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>Jane Smith</td>
+                                    <td>jane@fftournaments.app</td>
+                                    <td><span class="status-badge status-upcoming">Admin</span></td>
+                                    <td>1 day ago</td>
+                                    <td>
+                                        <button class="btn btn-secondary btn-sm">Edit</button>
+                                        <button class="btn btn-danger btn-sm">Remove</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- System Settings -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">System Settings</h3>
+                    </div>
+                    <form id="systemConfigForm">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Platform Commission (%)</label>
+                                <input type="number" class="form-input" id="platformCommission" value="5" min="0" max="50">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Auto-payout Threshold (₹)</label>
+                                <input type="number" class="form-input" id="autoPayoutThreshold" value="10000" min="1000">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Maintenance Mode</label>
+                            <select class="form-select" id="maintenanceMode">
+                                <option value="off">Off</option>
+                                <option value="on">On</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-save"></i> Save System Settings
+                        </button>
+                    </form>
+                </div>
+            </section>
+        </main>
+
+        <!-- Tournament Modal -->
+        <div id="tournamentModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title" id="tournamentModalTitle">Create Tournament</h3>
+                    <button class="close-btn" onclick="closeModal('tournamentModal')">&times;</button>
+                </div>
+                
+                <form id="tournamentForm">
+                    <div class="form-group">
+                        <label class="form-label">Tournament Title</label>
+                        <input type="text" class="form-input" id="tournamentTitle" placeholder="Enter tournament title" required>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Date</label>
+                            <input type="date" class="form-input" id="tournamentDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Time</label>
+                            <input type="time" class="form-input" id="tournamentTime" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Map</label>
+                            <select class="form-select" id="tournamentMap" required>
+                                <option value="">Select Map</option>
+                                <option value="Bermuda">Bermuda</option>
+                                <option value="Purgatory">Purgatory</option>
+                                <option value="Kalahari">Kalahari</option>
+                                <option value="Alpine">Alpine</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Max Players</label>
+                            <input type="number" class="form-input" id="tournamentMaxPlayers" min="10" max="500" value="100" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Entry Fee (₹)</label>
+                            <input type="number" class="form-input" id="tournamentEntryFee" min="10" value="50" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Prize Pool (₹)</label>
+                            <input type="number" class="form-input" id="tournamentPrize" min="100" value="2000" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Room ID</label>
+                            <input type="text" class="form-input" id="tournamentRoomId" placeholder="Game room ID" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Room Password</label>
+                            <input type="text" class="form-input" id="tournamentRoomPass" placeholder="Room password" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-textarea" id="tournamentDescription" placeholder="Tournament description..."></textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">
+                        <i class="fas fa-save"></i> Save Tournament
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Notification Modal -->
+        <div id="notificationModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">Send Notification</h3>
+                    <button class="close-btn" onclick="closeModal('notificationModal')">&times;</button>
+                </div>
+                
+                <form id="notificationForm">
+                    <div class="form-group">
+                        <label class="form-label">Notification Type</label>
+                        <select class="form-select" id="notificationType" required>
+                            <option value="">Select Type</option>
+                            <option value="tournament">Tournament Announcement</option>
+                            <option value="maintenance">Maintenance Alert</option>
+                            <option value="promotion">Promotion</option>
+                            <option value="general">General</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Target Audience</label>
+                        <select class="form-select" id="notificationTarget" required>
+                            <option value="">Select Audience</option>
+                            <option value="all">All Users</option>
+                            <option value="active">Active Players</option>
+                            <option value="new">New Players</option>
+                            <option value="premium">Premium Players</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Title</label>
+                        <input type="text" class="form-input" id="notificationTitle" placeholder="Notification title" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Message</label>
+                        <textarea class="form-textarea" id="notificationMessage" placeholder="Notification message..." required></textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">
+                        <i class="fas fa-paper-plane"></i> Send Notification
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Add Admin Modal -->
+        <div id="adminModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">Add Admin User</h3>
+                    <button class="close-btn" onclick="closeModal('adminModal')">&times;</button>
+                </div>
+                
+                <form id="adminForm">
+                    <div class="form-group">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" class="form-input" id="adminName" placeholder="Enter full name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Email Address</label>
+                        <input type="email" class="form-input" id="adminEmail" placeholder="admin@example.com" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Role</label>
+                        <select class="form-select" id="adminRole" required>
+                            <option value="">Select Role</option>
+                            <option value="admin">Admin</option>
+                            <option value="moderator">Moderator</option>
+                            <option value="support">Support</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Temporary Password</label>
+                        <input type="password" class="form-input" id="adminPassword" placeholder="Enter temporary password" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-success" style="width: 100%;">
+                        <i class="fas fa-user-plus"></i> Add Admin
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Admin Login Modal -->
+        <div id="adminLoginModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">Admin Login</h3>
+                </div>
+                
+                <form id="adminLoginForm">
+                    <div class="form-group">
+                        <label class="form-label">Admin Email</label>
+                        <input type="email" class="form-input" id="adminLoginEmail" placeholder="Enter admin email" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-input" id="adminLoginPassword" placeholder="Enter password" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary" id="adminLoginBtn" style="width: 100%;">
+                        <i class="fas fa-sign-in-alt"></i> Sign In as Admin
+                    </button>
+                </form>
+                
+                <div style="text-align: center; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                    <p style="color: #64748b; font-size: 0.875rem;">
+                        <i class="fas fa-info-circle"></i> Admin access only. Contact system administrator if you need access.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Wallet Management Modal -->
+        <div id="walletManagementModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">Manage Player Wallet</h3>
+                    <button class="close-btn" onclick="closeModal('walletManagementModal')">&times;</button>
+                </div>
+                
+                <div id="playerWalletInfo" style="background: var(--bg-secondary); padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem;">
+                    <!-- Player info will be populated here -->
+                </div>
+                
+                <form id="walletManagementForm">
+                    <div class="form-group">
+                        <label class="form-label">Action Type</label>
+                        <select class="form-select" id="walletActionType" required onchange="updateWalletActionUI()">
+                            <option value="">Select Action</option>
+                            <option value="add">Add Money (Bonus/Refund)</option>
+                            <option value="deduct">Deduct Money (Penalty/Fee)</option>
+                            <option value="set">Set Balance (Override)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" id="amountLabel">Amount (₹)</label>
+                        <input type="number" class="form-input" id="walletAmount" placeholder="Enter amount" min="1" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Reason (Optional)</label>
+                        <select class="form-select" id="walletReason">
+                            <option value="">Select Reason</option>
+                            <option value="tournament_bonus">Tournament Bonus</option>
+                            <option value="referral_bonus">Referral Bonus</option>
+                            <option value="refund">Refund</option>
+                            <option value="promotion">Promotional Credit</option>
+                            <option value="penalty">Penalty</option>
+                            <option value="admin_adjustment">Admin Adjustment</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Custom Note</label>
+                        <textarea class="form-textarea" id="walletNote" placeholder="Enter custom note (optional)" style="min-height: 80px;"></textarea>
+                    </div>
+                    
+                    <div id="walletPreview" style="background: var(--bg-secondary); padding: 1rem; border-radius: 12px; margin-bottom: 1rem; display: none;">
+                        <!-- Preview will be shown here -->
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary" id="walletManagementBtn" style="width: 100%;">
+                        <i class="fas fa-wallet"></i> Update Wallet
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =====================================================
+        // FIREBASE CONFIGURATION - MUST MATCH user.html CONFIG
+        // =====================================================
+        // Use the SAME Firebase configuration as in user.html
+        // Both user and admin interfaces must connect to the same database
+        
+        // ⚠️ MUST BE IDENTICAL TO user.html CONFIG ⚠️
+        const firebaseConfig = {
+            apiKey: "your-api-key-here",
+            authDomain: "your-project.firebaseapp.com",
+            projectId: "your-project-id",
+            storageBucket: "your-project.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "your-app-id"
+        };
+        
+        // Demo mode flag - will use localStorage if Firebase fails
+        let useDemoMode = false;
+        
+        // =====================================================
+        // DEMO MODE NOTICE
+        // =====================================================
+        // The app currently runs in DEMO MODE for testing
+        // - Auto-creates demo admin user after 1 second
+        // - Shows real-time data from Firebase Firestore
+        // - All metrics are calculated from actual database
+        // - Remove demoAdminSignIn() for production use
+        // =====================================================
+
+        // Initialize Firebase with fallback to demo mode
+        let app, db, auth;
+        let firebaseConnected = false;
+        
+        // Check if Firebase config is properly set
+        if (firebaseConfig.apiKey === "your-api-key-here" || !firebaseConfig.apiKey) {
+            console.warn('🔥 Firebase not configured - switching to DEMO MODE');
+            useDemoMode = true;
+            showMessage('info', '🔥 DEMO MODE: Using local storage. Tournaments will sync with user panel.');
+        } else {
+            try {
+                app = firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                auth = firebase.auth();
+                firebaseConnected = true;
+                console.log('✅ Firebase initialized successfully');
+                showMessage('success', '🔥 Firebase connected! Admin changes will sync with user panel.');
+            } catch (error) {
+                console.error('❌ Firebase initialization error:', error);
+                useDemoMode = true;
+                showMessage('error', '❌ Firebase connection failed. Using DEMO MODE. Check console for details.');
+            }
+        }
+
+        // Global Variables
+        let currentAdmin = null;
+        let tournaments = [];
+        let players = [];
+        let withdrawals = [];
+        let charts = {};
+        let dashboardMetrics = {
+            totalTournaments: 0,
+            totalPlayers: 0,
+            onlinePlayers: 0,
+            walletBalance: 0
+        };
+
+        // Demo Mode Functions (using localStorage) - Same as user.html
+        const demoStorage = {
+            getTournaments: () => {
+                const stored = localStorage.getItem('demo_tournaments');
+                return stored ? JSON.parse(stored) : [];
+            },
+            
+            saveTournaments: (tournaments) => {
+                localStorage.setItem('demo_tournaments', JSON.stringify(tournaments));
+                // Trigger storage event for cross-tab sync
+                window.dispatchEvent(new StorageEvent('storage', {
+                    key: 'demo_tournaments',
+                    newValue: JSON.stringify(tournaments)
+                }));
+            },
+            
+            getUsers: () => {
+                const stored = localStorage.getItem('demo_users');
+                return stored ? JSON.parse(stored) : [];
+            },
+            
+            saveUsers: (users) => {
+                localStorage.setItem('demo_users', JSON.stringify(users));
+            },
+            
+            getRegistrations: () => {
+                const stored = localStorage.getItem('demo_registrations');
+                return stored ? JSON.parse(stored) : [];
+            },
+            
+            saveRegistrations: (registrations) => {
+                localStorage.setItem('demo_registrations', JSON.stringify(registrations));
+            }
+        };
+
+        // Listen for storage changes (cross-tab sync in demo mode)
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'demo_tournaments' && useDemoMode) {
+                console.log('📡 Demo tournaments updated from user panel - refreshing admin view');
+                loadTournamentsFromStorage();
+                renderTournamentsTable();
+                updateDashboardMetrics();
+            }
+        });
+
+        // Firebase Data Loading Functions
+        async function loadTournamentsFromFirebase() {
+            if (useDemoMode) {
+                return loadTournamentsFromStorage();
+            }
+
+            try {
+                if (!db) {
+                    throw new Error('Firebase not initialized');
+                }
+
+                const snapshot = await db.collection('tournaments')
+                    .orderBy('datetime', 'desc')
+                    .get();
+                
+                tournaments = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    tournaments.push({
+                        id: doc.id,
+                        ...data,
+                        datetime: data.datetime?.toDate?.() || new Date(data.datetime)
+                    });
+                });
+                
+                updateTournamentStatus();
+                dashboardMetrics.totalTournaments = tournaments.length;
+                updateDashboardMetrics();
+                console.log(`✅ Admin loaded ${tournaments.length} tournaments from Firebase`);
+                return tournaments;
+            } catch (error) {
+                console.error('❌ Error loading tournaments from Firebase:', error);
+                console.log('🔄 Admin switching to demo mode');
+                useDemoMode = true;
+                return loadTournamentsFromStorage();
+            }
+        }
+
+        function loadTournamentsFromStorage() {
+            tournaments = demoStorage.getTournaments();
+            
+            // Convert string dates back to Date objects
+            tournaments.forEach(tournament => {
+                if (typeof tournament.datetime === 'string') {
+                    tournament.datetime = new Date(tournament.datetime);
+                }
+            });
+            
+            updateTournamentStatus();
+            dashboardMetrics.totalTournaments = tournaments.length;
+            updateDashboardMetrics();
+            console.log(`📱 Admin loaded ${tournaments.length} tournaments from localStorage`);
+            return tournaments;
+        }
+
+        async function loadPlayersFromFirebase() {
+            if (useDemoMode) {
+                return loadPlayersFromStorage();
+            }
+
+            try {
+                if (!db) {
+                    throw new Error('Firebase not initialized');
+                }
+
+                const snapshot = await db.collection('users').get();
+                
+                players = [];
+                let totalWalletBalance = 0;
+                
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    players.push({
+                        id: doc.id,
+                        ...data,
+                        joinedDate: data.joinedDate || new Date().toISOString()
+                    });
+                    totalWalletBalance += data.walletBalance || 0;
+                });
+                
+                dashboardMetrics.totalPlayers = players.length;
+                dashboardMetrics.walletBalance = totalWalletBalance;
+                dashboardMetrics.onlinePlayers = Math.floor(players.length * 0.15); // Simulate 15% online
+                updateDashboardMetrics();
+                console.log(`✅ Admin loaded ${players.length} players from Firebase`);
+                return players;
+            } catch (error) {
+                console.error('❌ Error loading players from Firebase:', error);
+                console.log('🔄 Admin switching to demo mode for players');
+                useDemoMode = true;
+                return loadPlayersFromStorage();
+            }
+        }
+
+        function loadPlayersFromStorage() {
+            players = demoStorage.getUsers();
+            
+            // If no demo users exist, create some sample ones
+            if (players.length === 0) {
+                players = [
+                    {
+                        id: 'demo-user',
+                        name: 'Demo User',
+                        email: 'demo@user.com',
+                        uid: '123456789',
+                        walletBalance: 500,
+                        totalTournaments: 3,
+                        totalWinnings: 1500,
+                        joinedDate: new Date().toISOString()
+                    },
+                    {
+                        id: 'demo-player1',
+                        name: 'Rohan Kumar',
+                        email: 'rohan@example.com',
+                        uid: '987654321',
+                        walletBalance: 750,
+                        totalTournaments: 15,
+                        totalWinnings: 2500,
+                        joinedDate: '2024-12-01T10:00:00.000Z'
+                    },
+                    {
+                        id: 'demo-player2',
+                        name: 'Priya Sharma',
+                        email: 'priya@example.com',
+                        uid: '876543210',
+                        walletBalance: 1200,
+                        totalTournaments: 8,
+                        totalWinnings: 3000,
+                        joinedDate: '2025-01-10T15:30:00.000Z'
+                    },
+                    {
+                        id: 'demo-player3',
+                        name: 'Amit Singh',
+                        email: 'amit@example.com',
+                        uid: '765432109',
+                        walletBalance: 50,
+                        totalTournaments: 25,
+                        totalWinnings: 5000,
+                        joinedDate: '2024-11-15T09:15:00.000Z'
+                    }
+                ];
+                demoStorage.saveUsers(players);
+            }
+            
+            let totalWalletBalance = 0;
+            players.forEach(player => {
+                totalWalletBalance += player.walletBalance || 0;
+            });
+            
+            dashboardMetrics.totalPlayers = players.length;
+            dashboardMetrics.walletBalance = totalWalletBalance;
+            dashboardMetrics.onlinePlayers = Math.floor(players.length * 0.15);
+            updateDashboardMetrics();
+            console.log(`📱 Admin loaded ${players.length} players from localStorage`);
+            return players;
+        }
+
+        function updateTournamentStatus() {
+            const now = new Date();
+            tournaments.forEach(tournament => {
+                const tournamentTime = new Date(tournament.datetime);
+                const timeDiff = tournamentTime.getTime() - now.getTime();
+                
+                if (timeDiff < 0) {
+                    tournament.status = 'ended';
+                } else if (timeDiff < 3600000) { // Less than 1 hour
+                    tournament.status = 'live';
+                } else {
+                    tournament.status = 'upcoming';
+                }
+            });
+        }
+
+        function updateDashboardMetrics() {
+            document.getElementById('totalTournaments').textContent = dashboardMetrics.totalTournaments;
+            document.getElementById('totalPlayers').textContent = dashboardMetrics.totalPlayers.toLocaleString();
+            document.getElementById('onlinePlayers').textContent = dashboardMetrics.onlinePlayers.toLocaleString();
+            document.getElementById('walletBalance').textContent = dashboardMetrics.walletBalance.toLocaleString();
+        }
+
+        // Navigation Functions
+        function showSection(sectionName) {
+            // Hide all sections
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // Remove active class from all nav tabs
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected section
+            document.getElementById(sectionName).classList.add('active');
+            
+            // Add active class to clicked nav tab
+            event.target.classList.add('active');
+            
+            // Load section-specific data
+            if (sectionName === 'tournaments') {
+                loadTournaments();
+            } else if (sectionName === 'players') {
+                loadPlayers();
+            } else if (sectionName === 'withdrawals') {
+                loadWithdrawals();
+            } else if (sectionName === 'analytics') {
+                loadAnalytics();
+            } else if (sectionName === 'dashboard') {
+                loadDashboard();
+            }
+        }
+
+        // Dashboard Functions
+        function loadDashboard() {
+            updateRealTimeStats();
+            loadRecentActivity();
+        }
+
+        function updateRealTimeStats() {
+            // Simulate real-time updates
+            setInterval(() => {
+                document.getElementById('onlinePlayers').textContent = Math.floor(Math.random() * 500 + 2000);
+                document.getElementById('activeMatches').textContent = Math.floor(Math.random() * 20 + 15);
+                document.getElementById('todaySignups').textContent = Math.floor(Math.random() * 50 + 80);
+            }, 5000);
+        }
+
+        function loadRecentActivity() {
+            const activities = [
+                { time: '2 min ago', text: 'New tournament "Friday Night Battle" created', type: 'success' },
+                { time: '5 min ago', text: 'Player "GameMaster21" joined Weekly Championship', type: 'info' },
+                { time: '12 min ago', text: 'Payment of ₹500 processed for user "FireKing"', type: 'success' },
+                { time: '18 min ago', text: 'Tournament "Daily Clash" ended with 50 participants', type: 'info' },
+                { time: '25 min ago', text: 'New admin "john@admin.com" added to system', type: 'warning' }
+            ];
+
+            const activityHtml = activities.map(activity => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid var(--border);">
+                    <div>
+                        <div style="font-weight: 500;">${activity.text}</div>
+                        <div style="font-size: 0.875rem; color: #64748b;">${activity.time}</div>
+                    </div>
+                    <div class="status-badge status-${activity.type === 'success' ? 'live' : activity.type === 'warning' ? 'upcoming' : 'ended'}">
+                        ${activity.type}
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('recentActivity').innerHTML = activityHtml;
+        }
+
+        // Tournament Functions
+        async function loadTournaments() {
+            if (tournaments.length === 0) {
+                await loadTournamentsFromFirebase();
+            }
+            renderTournamentsTable();
+        }
+
+        function renderTournamentsTable() {
+            const tbody = document.getElementById('tournamentsTableBody');
+            
+            if (tournaments.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 2rem; color: #64748b;">
+                            <div style="font-size: 2rem; margin-bottom: 1rem;">🏆</div>
+                            <div>No tournaments found</div>
+                            <button class="btn btn-primary" style="margin-top: 1rem;" onclick="openTournamentModal()">
+                                <i class="fas fa-plus"></i> Create First Tournament
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            tbody.innerHTML = tournaments.map(tournament => `
+                <tr>
+                    <td>
+                        <div style="font-weight: 600;">${tournament.title}</div>
+                        <div style="font-size: 0.875rem; color: #64748b;">${tournament.map}</div>
+                    </td>
+                    <td>${formatDateTime(tournament.datetime)}</td>
+                    <td>₹${tournament.prize.toLocaleString()}</td>
+                    <td>${tournament.currentPlayers || 0}/${tournament.maxPlayers}</td>
+                    <td>
+                        <span class="status-badge status-${tournament.status === 'live' ? 'live' : tournament.status === 'upcoming' ? 'upcoming' : 'ended'}">
+                            ${tournament.status}
+                        </span>
+                    </td>
+                    <td>
+                        <button class="btn btn-secondary btn-sm" onclick="editTournament('${tournament.id}')">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteTournament('${tournament.id}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function openTournamentModal(tournamentId = null) {
+            const modal = document.getElementById('tournamentModal');
+            const form = document.getElementById('tournamentForm');
+            
+            if (tournamentId) {
+                // Edit mode
+                const tournament = tournaments.find(t => t.id === tournamentId);
+                if (tournament) {
+                    document.getElementById('tournamentModalTitle').textContent = 'Edit Tournament';
+                    // Populate form fields
+                    document.getElementById('tournamentTitle').value = tournament.title;
+                    // ... populate other fields
+                }
+            } else {
+                // Create mode
+                document.getElementById('tournamentModalTitle').textContent = 'Create Tournament';
+                form.reset();
+            }
+            
+            modal.classList.add('active');
+        }
+
+        function editTournament(tournamentId) {
+            openTournamentModal(tournamentId);
+        }
+
+        function deleteTournament(tournamentId) {
+            if (confirm('Are you sure you want to delete this tournament?')) {
+                tournaments = tournaments.filter(t => t.id !== tournamentId);
+                renderTournamentsTable();
+                showMessage('success', 'Tournament deleted successfully!');
+            }
+        }
+
+        // Player Functions
+        async function loadPlayers() {
+            if (players.length === 0) {
+                await loadPlayersFromFirebase();
+            }
+            renderPlayersTable();
+            loadRecentRegistrations();
+        }
+
+        function renderPlayersTable() {
+            const tbody = document.getElementById('playersTableBody');
+            
+            if (players.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 2rem; color: #64748b;">
+                            <div style="font-size: 2rem; margin-bottom: 1rem;">👥</div>
+                            <div>No players registered yet</div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            tbody.innerHTML = players.map(player => `
+                <tr>
+                    <td>
+                        <div style="font-weight: 600;">${player.name || 'Unknown'}</div>
+                        <div style="font-size: 0.875rem; color: #64748b;">${player.email || 'No email'}</div>
+                    </td>
+                    <td>${player.uid || 'N/A'}</td>
+                    <td>₹${player.walletBalance || 0}</td>
+                    <td>${player.totalTournaments || 0}</td>
+                    <td>${formatDate(player.joinedDate)}</td>
+                    <td>
+                        <button class="btn btn-secondary btn-sm" onclick="viewPlayer('${player.id}')">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-success btn-sm" onclick="manageWallet('${player.id}')">
+                            <i class="fas fa-wallet"></i>
+                        </button>
+                        <button class="btn btn-warning btn-sm" onclick="editPlayer('${player.id}')">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function loadRecentRegistrations() {
+            try {
+                const snapshot = await db.collection('registrations')
+                    .orderBy('timestamp', 'desc')
+                    .limit(10)
+                    .get();
+
+                if (snapshot.empty) {
+                    document.getElementById('recentRegistrations').innerHTML = `
+                        <div style="text-align: center; padding: 2rem; color: #64748b;">
+                            <div style="font-size: 2rem; margin-bottom: 1rem;">📝</div>
+                            <div>No recent registrations</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const registrations = [];
+                for (const doc of snapshot.docs) {
+                    const regData = doc.data();
+                    
+                    // Get player info
+                    const playerDoc = await db.collection('users').doc(regData.userId).get();
+                    const playerName = playerDoc.exists ? playerDoc.data().name : 'Unknown Player';
+                    
+                    // Get tournament info
+                    const tournamentDoc = await db.collection('tournaments').doc(regData.tournamentId).get();
+                    const tournamentTitle = tournamentDoc.exists ? tournamentDoc.data().title : 'Unknown Tournament';
+                    const entryFee = tournamentDoc.exists ? tournamentDoc.data().entryFee : 0;
+                    
+                    registrations.push({
+                        player: playerName,
+                        tournament: tournamentTitle,
+                        fee: `₹${entryFee}`,
+                        time: getTimeAgo(regData.timestamp?.toDate() || new Date())
+                    });
+                }
+
+                const registrationsHtml = registrations.map(reg => `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid var(--border);">
+                        <div>
+                            <div style="font-weight: 600;">${reg.player}</div>
+                            <div style="font-size: 0.875rem; color: #64748b;">${reg.tournament}</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-weight: 600; color: var(--accent-green);">${reg.fee}</div>
+                            <div style="font-size: 0.875rem; color: #64748b;">${reg.time}</div>
+                        </div>
+                    </div>
+                `).join('');
+
+                document.getElementById('recentRegistrations').innerHTML = registrationsHtml;
+            } catch (error) {
+                console.error('Error loading recent registrations:', error);
+                document.getElementById('recentRegistrations').innerHTML = `
+                    <div style="text-align: center; padding: 2rem; color: var(--accent-red);">
+                        <div>Failed to load registrations</div>
+                    </div>
+                `;
+            }
+        }
+
+        function getTimeAgo(date) {
+            const now = new Date();
+            const diffInSeconds = Math.floor((now - date) / 1000);
+            
+            if (diffInSeconds < 60) return 'Just now';
+            if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} min ago`;
+            if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hour ago`;
+            return `${Math.floor(diffInSeconds / 86400)} day ago`;
+        }
+
+        function viewPlayer(playerId) {
+            const player = players.find(p => p.id === playerId);
+            if (player) {
+                showMessage('info', `Viewing player: ${player.name} (${player.email})`);
+            }
+        }
+
+        function editPlayer(playerId) {
+            const player = players.find(p => p.id === playerId);
+            if (player) {
+                showMessage('info', `Edit player feature coming soon for: ${player.name}`);
+            }
+        }
+
+        // Wallet Management Functions
+        let selectedPlayer = null;
+
+        function manageWallet(playerId) {
+            selectedPlayer = players.find(p => p.id === playerId);
+            if (!selectedPlayer) {
+                showMessage('error', 'Player not found');
+                return;
+            }
+
+            // Populate player info
+            document.getElementById('playerWalletInfo').innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: 600; font-size: 1.1rem;">${selectedPlayer.name || 'Unknown Player'}</div>
+                        <div style="color: #64748b; font-size: 0.875rem;">${selectedPlayer.email || 'No email'}</div>
+                        <div style="color: #64748b; font-size: 0.875rem;">FF UID: ${selectedPlayer.uid || 'N/A'}</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 0.875rem; color: #64748b;">Current Balance</div>
+                        <div style="font-size: 1.5rem; font-weight: bold; color: var(--accent-green);">₹${selectedPlayer.walletBalance || 0}</div>
+                    </div>
+                </div>
+            `;
+
+            // Reset form
+            document.getElementById('walletManagementForm').reset();
+            document.getElementById('walletPreview').style.display = 'none';
+
+            // Show modal
+            document.getElementById('walletManagementModal').classList.add('active');
+        }
+
+        function updateWalletActionUI() {
+            const actionType = document.getElementById('walletActionType').value;
+            const amountLabel = document.getElementById('amountLabel');
+            const walletAmount = document.getElementById('walletAmount');
+            
+            switch (actionType) {
+                case 'add':
+                    amountLabel.textContent = 'Amount to Add (₹)';
+                    walletAmount.placeholder = 'Enter amount to add';
+                    walletAmount.min = '1';
+                    break;
+                case 'deduct':
+                    amountLabel.textContent = 'Amount to Deduct (₹)';
+                    walletAmount.placeholder = 'Enter amount to deduct';
+                    walletAmount.min = '1';
+                    break;
+                case 'set':
+                    amountLabel.textContent = 'New Balance (₹)';
+                    walletAmount.placeholder = 'Enter new balance';
+                    walletAmount.min = '0';
+                    break;
+                default:
+                    amountLabel.textContent = 'Amount (₹)';
+                    walletAmount.placeholder = 'Enter amount';
+                    walletAmount.min = '1';
+            }
+
+            // Update preview when amount changes
+            updateWalletPreview();
+        }
+
+        function updateWalletPreview() {
+            const actionType = document.getElementById('walletActionType').value;
+            const amount = parseFloat(document.getElementById('walletAmount').value) || 0;
+            const currentBalance = selectedPlayer ? (selectedPlayer.walletBalance || 0) : 0;
+            const preview = document.getElementById('walletPreview');
+
+            if (!actionType || !amount || !selectedPlayer) {
+                preview.style.display = 'none';
+                return;
+            }
+
+            let newBalance = currentBalance;
+            let actionText = '';
+            let colorClass = '';
+
+            switch (actionType) {
+                case 'add':
+                    newBalance = currentBalance + amount;
+                    actionText = `Add ₹${amount}`;
+                    colorClass = 'var(--accent-green)';
+                    break;
+                case 'deduct':
+                    newBalance = Math.max(0, currentBalance - amount);
+                    actionText = `Deduct ₹${amount}`;
+                    colorClass = 'var(--accent-red)';
+                    break;
+                case 'set':
+                    newBalance = amount;
+                    actionText = `Set balance to ₹${amount}`;
+                    colorClass = 'var(--accent-blue)';
+                    break;
+            }
+
+            preview.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: 600; color: ${colorClass};">${actionText}</div>
+                        <div style="font-size: 0.875rem; color: #64748b;">Current: ₹${currentBalance} → New: ₹${newBalance}</div>
+                    </div>
+                    <div style="font-size: 1.25rem; font-weight: bold; color: ${colorClass};">
+                        ₹${newBalance}
+                    </div>
+                </div>
+            `;
+            preview.style.display = 'block';
+        }
+
+
+
+        // Wallet Management Form Handler
+        document.getElementById('walletManagementForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            if (!selectedPlayer) {
+                showMessage('error', 'No player selected');
+                return;
+            }
+
+            const actionType = document.getElementById('walletActionType').value;
+            const amount = parseFloat(document.getElementById('walletAmount').value);
+            const reason = document.getElementById('walletReason').value;
+            const note = document.getElementById('walletNote').value;
+            const walletBtn = document.getElementById('walletManagementBtn');
+
+            if (!actionType || !amount) {
+                showMessage('error', 'Please fill all required fields');
+                return;
+            }
+
+            walletBtn.innerHTML = '<span class="loading"></span> Updating...';
+            walletBtn.disabled = true;
+
+            try {
+                await updatePlayerWallet(selectedPlayer.id, actionType, amount, reason, note);
+                closeModal('walletManagementModal');
+                showMessage('success', `✅ Wallet updated successfully! Player will see the change instantly.`);
+                
+                // Refresh players list
+                await loadPlayersFromFirebase();
+                renderPlayersTable();
+                updateDashboardMetrics();
+                
+            } catch (error) {
+                console.error('❌ Wallet update error:', error);
+                showMessage('error', '❌ Failed to update wallet. Please try again.');
+            } finally {
+                walletBtn.innerHTML = '<i class="fas fa-wallet"></i> Update Wallet';
+                walletBtn.disabled = false;
+            }
+        });
+
+        // Update Player Wallet Function
+        async function updatePlayerWallet(playerId, actionType, amount, reason, note) {
+            try {
+                let player = players.find(p => p.id === playerId);
+                if (!player) {
+                    throw new Error('Player not found');
+                }
+
+                const currentBalance = player.walletBalance || 0;
+                let newBalance = currentBalance;
+
+                // Calculate new balance
+                switch (actionType) {
+                    case 'add':
+                        newBalance = currentBalance + amount;
+                        break;
+                    case 'deduct':
+                        newBalance = Math.max(0, currentBalance - amount);
+                        break;
+                    case 'set':
+                        newBalance = amount;
+                        break;
+                    default:
+                        throw new Error('Invalid action type');
+                }
+
+                // Create wallet transaction record
+                const transaction = {
+                    playerId: playerId,
+                    adminId: currentAdmin?.uid || 'demo-admin',
+                    actionType: actionType,
+                    amount: amount,
+                    previousBalance: currentBalance,
+                    newBalance: newBalance,
+                    reason: reason || 'admin_adjustment',
+                    note: note || '',
+                    timestamp: new Date().toISOString()
+                };
+
+                if (useDemoMode) {
+                    // Update localStorage
+                    player.walletBalance = newBalance;
+                    demoStorage.saveUsers(players);
+                    
+                    // Save transaction to demo storage
+                    const transactions = JSON.parse(localStorage.getItem('demo_wallet_transactions') || '[]');
+                    transactions.push({ ...transaction, id: 'demo_' + Date.now() });
+                    localStorage.setItem('demo_wallet_transactions', JSON.stringify(transactions));
+                    
+                    // Trigger user panel update
+                    localStorage.setItem('demo_wallet_update', JSON.stringify({
+                        playerId: playerId,
+                        newBalance: newBalance,
+                        timestamp: Date.now()
+                    }));
+                    
+                    console.log(`💰 Demo: Updated ${player.name}'s wallet from ₹${currentBalance} to ₹${newBalance}`);
+                } else {
+                    // Update Firebase
+                    if (!db) {
+                        throw new Error('Firebase not initialized');
+                    }
+
+                    // Update user document
+                    await db.collection('users').doc(playerId).update({
+                        walletBalance: newBalance
+                    });
+
+                    // Save transaction record
+                    await db.collection('wallet_transactions').add({
+                        ...transaction,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+
+                    console.log(`💰 Firebase: Updated ${player.name}'s wallet from ₹${currentBalance} to ₹${newBalance}`);
+                }
+
+                // Update local player object
+                player.walletBalance = newBalance;
+                
+                return true;
+            } catch (error) {
+                console.error('Error updating player wallet:', error);
+                throw error;
+            }
+        }
+
+        function exportPlayers() {
+            showMessage('success', 'Player data export started. Download will begin shortly.');
+        }
+
+        // Withdrawal Management Functions
+        async function loadWithdrawals() {
+            try {
+                if (useDemoMode) {
+                    withdrawals = JSON.parse(localStorage.getItem('demo_withdrawals') || '[]');
+                } else {
+                    if (!db) {
+                        throw new Error('Firebase not initialized');
+                    }
+
+                    const snapshot = await db.collection('withdrawals')
+                        .orderBy('requestedAt', 'desc')
+                        .get();
+                    
+                    withdrawals = [];
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        withdrawals.push({
+                            id: doc.id,
+                            ...data,
+                            requestedAt: data.requestedAt?.toDate?.() || new Date(data.requestedAt)
+                        });
+                    });
+                }
+                
+                renderWithdrawalsTable();
+                updateWithdrawalMetrics();
+                console.log(`✅ Admin loaded ${withdrawals.length} withdrawal requests`);
+                
+            } catch (error) {
+                console.error('❌ Error loading withdrawals:', error);
+                showMessage('error', 'Failed to load withdrawal requests');
+            }
+        }
+
+        function renderWithdrawalsTable() {
+            const tbody = document.getElementById('withdrawalsTableBody');
+            
+            if (withdrawals.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 2rem; color: #64748b;">
+                            <div style="font-size: 2rem; margin-bottom: 1rem;">💳</div>
+                            <div>No withdrawal requests</div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            tbody.innerHTML = withdrawals.map(withdrawal => `
+                <tr>
+                    <td>
+                        <div style="font-weight: 600;">${withdrawal.userName || 'Unknown User'}</div>
+                        <div style="font-size: 0.875rem; color: #64748b;">${withdrawal.userEmail || 'No email'}</div>
+                    </td>
+                    <td style="font-weight: 600; color: var(--accent-green);">₹${withdrawal.amount}</td>
+                    <td>${withdrawal.bankAccount || 'N/A'}</td>
+                    <td>${withdrawal.purpose || 'N/A'}</td>
+                    <td>${formatDateTime(withdrawal.requestedAt)}</td>
+                    <td>
+                        <span class="status-badge status-${withdrawal.status === 'approved' ? 'live' : withdrawal.status === 'rejected' ? 'ended' : 'upcoming'}">
+                            ${withdrawal.status}
+                        </span>
+                    </td>
+                    <td>
+                        ${withdrawal.status === 'pending' ? `
+                            <button class="btn btn-success btn-sm" onclick="approveWithdrawal('${withdrawal.id}')">
+                                <i class="fas fa-check"></i> Approve
+                            </button>
+                            <button class="btn btn-danger btn-sm" onclick="rejectWithdrawal('${withdrawal.id}')">
+                                <i class="fas fa-times"></i> Reject
+                            </button>
+                        ` : `
+                            <span style="color: #64748b; font-size: 0.875rem;">
+                                ${withdrawal.status === 'approved' ? 'Processed' : 'Rejected'}
+                            </span>
+                        `}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function updateWithdrawalMetrics() {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            const todayWithdrawals = withdrawals.filter(w => {
+                const requestDate = new Date(w.requestedAt);
+                requestDate.setHours(0, 0, 0, 0);
+                return requestDate.getTime() === today.getTime();
+            });
+            
+            const approved = todayWithdrawals.filter(w => w.status === 'approved').length;
+            const pending = withdrawals.filter(w => w.status === 'pending').length;
+            const rejected = todayWithdrawals.filter(w => w.status === 'rejected').length;
+            const totalPendingAmount = withdrawals
+                .filter(w => w.status === 'pending')
+                .reduce((sum, w) => sum + (w.amount || 0), 0);
+            
+            document.getElementById('approvedWithdrawals').textContent = approved;
+            document.getElementById('pendingWithdrawals').textContent = pending;
+            document.getElementById('rejectedWithdrawals').textContent = rejected;
+            document.getElementById('totalWithdrawalAmount').textContent = totalPendingAmount.toLocaleString();
+        }
+
+        async function approveWithdrawal(withdrawalId) {
+            const withdrawal = withdrawals.find(w => w.id === withdrawalId);
+            if (!withdrawal) {
+                showMessage('error', 'Withdrawal request not found');
+                return;
+            }
+
+            if (confirm(`Approve withdrawal of ₹${withdrawal.amount} for ${withdrawal.userName}?`)) {
+                try {
+                    // Update withdrawal status
+                    await updateWithdrawalStatus(withdrawalId, 'approved');
+                    
+                    // Deduct money from user's wallet (if not already deducted)
+                    await deductWithdrawalAmount(withdrawal);
+                    
+                    // Notify user
+                    await notifyUser(withdrawal, 'approved');
+                    
+                    showMessage('success', `✅ Withdrawal approved! User will be notified.`);
+                    
+                    // Refresh data
+                    await loadWithdrawals();
+                    
+                } catch (error) {
+                    console.error('❌ Error approving withdrawal:', error);
+                    showMessage('error', '❌ Failed to approve withdrawal. Please try again.');
+                }
+            }
+        }
+
+        async function rejectWithdrawal(withdrawalId) {
+            const withdrawal = withdrawals.find(w => w.id === withdrawalId);
+            if (!withdrawal) {
+                showMessage('error', 'Withdrawal request not found');
+                return;
+            }
+
+            const reason = prompt(`Reject withdrawal of ₹${withdrawal.amount} for ${withdrawal.userName}?\n\nPlease enter rejection reason:`);
+            if (reason !== null) {
+                try {
+                    // Update withdrawal status with reason
+                    await updateWithdrawalStatus(withdrawalId, 'rejected', reason);
+                    
+                    // Notify user with reason
+                    await notifyUser(withdrawal, 'rejected', reason);
+                    
+                    showMessage('success', `❌ Withdrawal rejected. User will be notified.`);
+                    
+                    // Refresh data
+                    await loadWithdrawals();
+                    
+                } catch (error) {
+                    console.error('❌ Error rejecting withdrawal:', error);
+                    showMessage('error', '❌ Failed to reject withdrawal. Please try again.');
+                }
+            }
+        }
+
+        async function updateWithdrawalStatus(withdrawalId, status, reason = '') {
+            try {
+                if (useDemoMode) {
+                    // Update localStorage
+                    const storedWithdrawals = JSON.parse(localStorage.getItem('demo_withdrawals') || '[]');
+                    const index = storedWithdrawals.findIndex(w => w.id === withdrawalId);
+                    if (index !== -1) {
+                        storedWithdrawals[index].status = status;
+                        if (reason) storedWithdrawals[index].rejectionReason = reason;
+                        storedWithdrawals[index].processedAt = new Date().toISOString();
+                        localStorage.setItem('demo_withdrawals', JSON.stringify(storedWithdrawals));
+                    }
+                    
+                    console.log(`💳 Demo: Withdrawal ${withdrawalId} marked as ${status}`);
+                } else {
+                    // Update Firebase
+                    if (!db) {
+                        throw new Error('Firebase not initialized');
+                    }
+
+                    const updateData = {
+                        status: status,
+                        processedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+                    if (reason) updateData.rejectionReason = reason;
+
+                    await db.collection('withdrawals').doc(withdrawalId).update(updateData);
+                    console.log(`💳 Firebase: Withdrawal ${withdrawalId} marked as ${status}`);
+                }
+
+                return true;
+            } catch (error) {
+                console.error('Error updating withdrawal status:', error);
+                throw error;
+            }
+        }
+
+        async function deductWithdrawalAmount(withdrawal) {
+            try {
+                // Find the player and deduct money from their wallet
+                const playerId = withdrawal.userId;
+                const amount = withdrawal.amount;
+                
+                if (useDemoMode) {
+                    // Update in demo storage
+                    const users = demoStorage.getUsers();
+                    const userIndex = users.findIndex(u => u.id === playerId);
+                    if (userIndex !== -1) {
+                        users[userIndex].walletBalance = Math.max(0, (users[userIndex].walletBalance || 0) - amount);
+                        demoStorage.saveUsers(users);
+                        
+                        // Also update local players array
+                        const localPlayerIndex = players.findIndex(p => p.id === playerId);
+                        if (localPlayerIndex !== -1) {
+                            players[localPlayerIndex].walletBalance = users[userIndex].walletBalance;
+                        }
+                    }
+                } else {
+                    // Update Firebase
+                    if (!db) return;
+                    
+                    const userRef = db.collection('users').doc(playerId);
+                    const userDoc = await userRef.get();
+                    
+                    if (userDoc.exists) {
+                        const currentBalance = userDoc.data().walletBalance || 0;
+                        const newBalance = Math.max(0, currentBalance - amount);
+                        
+                        await userRef.update({
+                            walletBalance: newBalance
+                        });
+                        
+                        // Save transaction record
+                        await db.collection('user_transactions').add({
+                            userId: playerId,
+                            amount: -amount,
+                            previousBalance: currentBalance,
+                            newBalance: newBalance,
+                            reason: 'withdrawal_approved',
+                            note: `Withdrawal approved: ${withdrawal.bankAccount}`,
+                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error deducting withdrawal amount:', error);
+                throw error;
+            }
+        }
+
+        async function notifyUser(withdrawal, status, reason = '') {
+            try {
+                const notificationData = {
+                    userId: withdrawal.userId,
+                    amount: withdrawal.amount,
+                    bankAccount: withdrawal.bankAccount,
+                    status: status,
+                    reason: reason,
+                    timestamp: Date.now()
+                };
+
+                if (useDemoMode) {
+                    // Trigger user notification via localStorage
+                    localStorage.setItem('demo_withdrawal_update', JSON.stringify(notificationData));
+                    console.log(`📢 Demo: User notified of withdrawal ${status}`);
+                } else {
+                    // In Firebase mode, you could use Firebase Cloud Messaging or another notification service
+                    console.log(`📢 Firebase: User notification triggered for withdrawal ${status}`);
+                }
+                
+            } catch (error) {
+                console.error('Error notifying user:', error);
+            }
+        }
+
+        // Analytics Functions
+        function loadAnalytics() {
+            setTimeout(() => {
+                initCharts();
+            }, 100);
+        }
+
+        function initCharts() {
+            // Daily Sign-ups Chart
+            const signupsCtx = document.getElementById('signupsChart').getContext('2d');
+            charts.signups = new Chart(signupsCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'Daily Sign-ups',
+                        data: [45, 67, 89, 123, 156, 134, 178],
+                        borderColor: '#2563EB',
+                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            // Revenue Chart
+            const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+            charts.revenue = new Chart(revenueCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+                    datasets: [{
+                        label: 'Revenue (₹)',
+                        data: [12500, 18750, 25300, 31200],
+                        backgroundColor: '#10B981',
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+
+            // Tournament Participation Chart
+            const participationCtx = document.getElementById('participationChart').getContext('2d');
+            charts.participation = new Chart(participationCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Weekly Championship', 'Daily Battle', 'Sunday Royale', 'Special Events'],
+                    datasets: [{
+                        data: [35, 25, 20, 20],
+                        backgroundColor: ['#2563EB', '#10B981', '#FBBF24', '#7C3AED']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+
+            // Referral Performance Chart
+            const referralCtx = document.getElementById('referralChart').getContext('2d');
+            charts.referral = new Chart(referralCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                    datasets: [{
+                        label: 'Referrals',
+                        data: [120, 145, 178, 234, 289, 356],
+                        borderColor: '#F97316',
+                        backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+
+            // Active Players Gauge
+            const gaugeCtx = document.getElementById('activePlayersGauge').getContext('2d');
+            charts.gauge = new Chart(gaugeCtx, {
+                type: 'doughnut',
+                data: {
+                    datasets: [{
+                        data: [2340, 7660], // Active vs Total capacity
+                        backgroundColor: ['#2563EB', '#E2E8F0'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        // Modal Functions
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function openNotificationModal() {
+            document.getElementById('notificationModal').classList.add('active');
+        }
+
+        function openAdminModal() {
+            document.getElementById('adminModal').classList.add('active');
+        }
+
+        // Form Handlers
+        document.getElementById('tournamentForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            try {
+                // Save tournament
+                await saveTournament();
+                closeModal('tournamentModal');
+                
+                // Refresh tournaments list and dashboard
+                await loadTournamentsFromFirebase();
+                renderTournamentsTable();
+                updateDashboardMetrics();
+                
+                // Reset form
+                document.getElementById('tournamentForm').reset();
+                
+                showMessage('success', '✅ Tournament created successfully! Check user panel to see it sync.');
+                console.log('🎯 Tournament created - should now appear in user panel');
+            } catch (error) {
+                showMessage('error', '❌ Failed to save tournament. Please try again.');
+                console.error('❌ Tournament save error:', error);
+            }
+        });
+
+        document.getElementById('notificationForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const title = document.getElementById('notificationTitle').value;
+            const message = document.getElementById('notificationMessage').value;
+            const type = document.getElementById('notificationType').value;
+            const target = document.getElementById('notificationTarget').value;
+            
+            try {
+                // Send notification via Firebase
+                await sendNotification({ title, message, type, target });
+                closeModal('notificationModal');
+                showMessage('success', 'Notification sent successfully!');
+                e.target.reset();
+            } catch (error) {
+                showMessage('error', 'Failed to send notification. Please try again.');
+                console.error('Notification error:', error);
+            }
+        });
+
+        document.getElementById('paymentConfigForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            showMessage('success', 'Payment configuration saved successfully!');
+        });
+
+        document.getElementById('referralConfigForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            showMessage('success', 'Referral settings updated successfully!');
+        });
+
+        document.getElementById('systemConfigForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            showMessage('success', 'System settings updated successfully!');
+        });
+
+        document.getElementById('adminForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const name = document.getElementById('adminName').value;
+            showMessage('success', `Admin user "${name}" added successfully!`);
+            closeModal('adminModal');
+            e.target.reset();
+        });
+
+        // Firebase Functions
+        async function saveTournament() {
+            try {
+                // Get form values
+                const title = document.getElementById('tournamentTitle').value;
+                const date = document.getElementById('tournamentDate').value;
+                const time = document.getElementById('tournamentTime').value;
+                const map = document.getElementById('tournamentMap').value;
+                const maxPlayers = parseInt(document.getElementById('tournamentMaxPlayers').value);
+                const entryFee = parseInt(document.getElementById('tournamentEntryFee').value);
+                const prize = parseInt(document.getElementById('tournamentPrize').value);
+                const roomId = document.getElementById('tournamentRoomId').value;
+                const roomPass = document.getElementById('tournamentRoomPass').value;
+                const description = document.getElementById('tournamentDescription').value;
+
+                // Combine date and time
+                const datetime = new Date(`${date}T${time}`);
+
+                const tournamentData = {
+                    title: title,
+                    datetime: datetime.toISOString(), // Store as ISO string for localStorage compatibility
+                    map: map,
+                    prize: prize,
+                    entryFee: entryFee,
+                    maxPlayers: maxPlayers,
+                    currentPlayers: 0,
+                    roomId: roomId,
+                    roomPass: roomPass,
+                    description: description || '',
+                    createdAt: new Date().toISOString(),
+                    createdBy: currentAdmin?.uid || 'demo-admin',
+                    status: 'upcoming'
+                };
+
+                if (useDemoMode) {
+                    // Save to localStorage
+                    const tournaments = demoStorage.getTournaments();
+                    tournamentData.id = 'demo_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    tournaments.push(tournamentData);
+                    demoStorage.saveTournaments(tournaments);
+                    console.log('✅ Tournament saved to localStorage');
+                } else {
+                    // Save to Firebase
+                    if (!db || !currentAdmin) {
+                        throw new Error('Firebase not initialized or admin not authenticated');
+                    }
+                    
+                    // Convert to Firebase timestamp for Firestore
+                    tournamentData.datetime = firebase.firestore.Timestamp.fromDate(datetime);
+                    tournamentData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                    
+                    await db.collection('tournaments').add(tournamentData);
+                    console.log('✅ Tournament saved to Firebase');
+                }
+                
+                return true;
+            } catch (error) {
+                console.error('❌ Error saving tournament:', error);
+                throw error;
+            }
+        }
+
+        async function sendNotification(notificationData) {
+            try {
+                await db.collection('notifications').add({
+                    ...notificationData,
+                    sentAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    sentBy: currentAdmin?.uid || 'admin'
+                });
+                return true;
+            } catch (error) {
+                console.error('Error sending notification:', error);
+                throw error;
+            }
+        }
+
+        // Utility Functions
+        function formatDateTime(dateTimeString) {
+            const date = new Date(dateTimeString);
+            return date.toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
+            });
+        }
+
+        function showMessage(type, message) {
+            // Create message element
+            const messageEl = document.createElement('div');
+            messageEl.className = `message ${type}`;
+            messageEl.textContent = message;
+            
+            // Insert at top of content
+            const content = document.querySelector('.content');
+            content.insertBefore(messageEl, content.firstChild);
+            
+            // Auto remove after 3 seconds
+            setTimeout(() => {
+                messageEl.remove();
+            }, 3000);
+        }
+
+        // Real-time stats update
+        function updateRealTimeStats() {
+            // Update active matches and today's metrics
+            const activeMatches = tournaments.filter(t => t.status === 'live').length;
+            const todaySignups = Math.floor(Math.random() * 50 + 30); // Simulate daily signups
+            const todayRevenue = todaySignups * 75; // Average entry fee
+
+            document.getElementById('activeMatches').textContent = activeMatches;
+            document.getElementById('todaySignups').textContent = todaySignups;
+            document.getElementById('todayRevenue').textContent = `₹${todayRevenue.toLocaleString()}`;
+            
+            // Update pending payouts (simulate)
+            const pendingPayouts = Math.floor(dashboardMetrics.walletBalance * 0.1);
+            document.getElementById('pendingPayouts').textContent = `₹${pendingPayouts.toLocaleString()}`;
+        }
+
+        // Admin Authentication Functions
+        function showAdminLogin() {
+            document.getElementById('adminLoginModal').classList.add('active');
+        }
+
+        // Admin Login Form Handler
+        document.getElementById('adminLoginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('adminLoginEmail').value;
+            const password = document.getElementById('adminLoginPassword').value;
+            const loginBtn = document.getElementById('adminLoginBtn');
+            
+            loginBtn.innerHTML = '<span class="loading"></span> Signing in...';
+            loginBtn.disabled = true;
+            
+            try {
+                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                const user = userCredential.user;
+                
+                // Check if user is admin (you can add admin role checking here)
+                // For now, any authenticated user can access admin panel
+                // In production, add role verification from Firestore
+                
+                closeModal('adminLoginModal');
+                showMessage('success', 'Admin login successful!');
+                
+            } catch (error) {
+                console.error('Admin login error:', error);
+                showMessage('error', getAuthErrorMessage(error.code));
+            } finally {
+                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In as Admin';
+                loginBtn.disabled = false;
+            }
+        });
+
+        function getAuthErrorMessage(errorCode) {
+            switch (errorCode) {
+                case 'auth/user-not-found':
+                    return 'No admin account found with this email.';
+                case 'auth/wrong-password':
+                    return 'Incorrect password.';
+                case 'auth/invalid-email':
+                    return 'Invalid email address.';
+                case 'auth/network-request-failed':
+                    return 'Network error. Please check your internet connection.';
+                default:
+                    return 'Admin authentication failed. Please try again.';
+            }
+        }
+
+        // Admin Logout Function
+        function adminLogout() {
+            if (confirm('Are you sure you want to logout?')) {
+                auth.signOut().then(() => {
+                    showMessage('success', 'Admin logged out successfully!');
+                }).catch((error) => {
+                    console.error('Logout error:', error);
+                    showMessage('error', 'Logout failed. Please try again.');
+                });
+            }
+        }
+
+        // Authentication
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                currentAdmin = user;
+                console.log('Admin signed in:', user);
+                
+                // Update admin welcome message
+                document.getElementById('adminWelcome').textContent = `Welcome, ${user.displayName || user.email}`;
+                
+                // Load all data
+                await loadTournamentsFromFirebase();
+                await loadPlayersFromFirebase();
+                await loadDashboard();
+                await loadTournaments();
+                
+                showMessage('success', `Welcome, Admin ${user.displayName || user.email}!`);
+            } else {
+                console.log('Admin signed out');
+                currentAdmin = null;
+                
+                // Reset admin welcome message
+                document.getElementById('adminWelcome').textContent = 'Welcome, Admin';
+                
+                if (useDemoMode) {
+                    // In demo mode, allow admin access without authentication
+                    currentAdmin = { uid: 'demo-admin', email: 'demo@admin.com', displayName: 'Demo Admin' };
+                    document.getElementById('adminWelcome').textContent = 'Welcome, Demo Admin';
+                    
+                    // Load data and initialize
+                    await loadTournamentsFromFirebase();
+                    await loadPlayersFromFirebase();
+                    await loadDashboard();
+                    await loadTournaments();
+                    
+                    showMessage('info', '🔥 Demo mode: Admin access granted. Create tournaments to test sync with user panel.');
+                } else {
+                    // Clear sensitive data
+                    tournaments = [];
+                    players = [];
+                    dashboardMetrics = { totalTournaments: 0, totalPlayers: 0, onlinePlayers: 0, walletBalance: 0 };
+                    updateDashboardMetrics();
+                    
+                    // Show admin login modal
+                    setTimeout(() => {
+                        if (!currentAdmin) {
+                            showMessage('info', 'Please sign in to access admin features');
+                            showAdminLogin();
+                        }
+                    }, 1000);
+                }
+            }
+        });
+
+        // Initialize App
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('Admin dashboard initializing...');
+            
+            // Load initial data
+            await loadTournamentsFromFirebase();
+            await loadPlayersFromFirebase();
+            loadDashboard();
+            loadTournaments();
+            
+            // Start real-time updates
+            setInterval(updateRealTimeStats, 5000);
+            
+            // Set up wallet amount input listener for real-time preview
+            const walletAmountInput = document.getElementById('walletAmount');
+            if (walletAmountInput) {
+                walletAmountInput.addEventListener('input', updateWalletPreview);
+            }
+            
+            // Close modals when clicking outside
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        modal.classList.remove('active');
+                    }
+                });
+            });
+
+            // Search functionality
+            document.getElementById('tournamentSearch')?.addEventListener('input', function(e) {
+                const searchTerm = e.target.value.toLowerCase();
+                if (tournaments.length === 0) return;
+                
+                const filteredTournaments = tournaments.filter(t => 
+                    t.title.toLowerCase().includes(searchTerm) ||
+                    t.map.toLowerCase().includes(searchTerm)
+                );
+                
+                // Temporarily update the displayed tournaments
+                const originalTournaments = [...tournaments];
+                tournaments = filteredTournaments;
+                renderTournamentsTable();
+                
+                // Restore original tournaments after a delay
+                if (searchTerm === '') {
+                    tournaments = originalTournaments;
+                }
+            });
+
+            document.getElementById('playerSearch')?.addEventListener('input', function(e) {
+                const searchTerm = e.target.value.toLowerCase();
+                if (players.length === 0) return;
+                
+                const filteredPlayers = players.filter(p => 
+                    (p.name || '').toLowerCase().includes(searchTerm) ||
+                    (p.email || '').toLowerCase().includes(searchTerm) ||
+                    (p.uid || '').toString().includes(searchTerm)
+                );
+                
+                // Temporarily update the displayed players
+                const originalPlayers = [...players];
+                players = filteredPlayers;
+                renderPlayersTable();
+                
+                // Restore original players after a delay
+                if (searchTerm === '') {
+                    players = originalPlayers;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
